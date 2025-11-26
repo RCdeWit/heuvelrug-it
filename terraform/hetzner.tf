@@ -3,7 +3,7 @@ resource "hcloud_ssh_key" "main" {
   public_key = var.ssh_key_deployment_public
 }
 
-resource "hcloud_server" "vps_reverse_proxy" {
+resource "hcloud_server" "drive_instance" {
   name        = "drive-instance"
   image       = "ubuntu-24.04"
   server_type = "cpx32"
@@ -28,7 +28,7 @@ resource "hcloud_zone_rrset" "drive" {
   type    = "A"
   ttl     = 3600
   records = [
-    { value = hcloud_server.vps_reverse_proxy.ipv4_address }
+    { value = hcloud_server.drive_instance.ipv4_address }
   ]
 }
 
