@@ -1,0 +1,14 @@
+drive.dobbertjeduik.nl {
+    tls {
+        dns hetzner {env.HETZNER_API_TOKEN}
+        resolvers 8.8.8.8:53 1.1.1.1:53
+    }
+
+    reverse_proxy localhost:8080 {
+        header_up Host drive.dobbertjeduik.nl
+        header_up X-Forwarded-Host drive.dobbertjeduik.nl
+        header_up X-Forwarded-Proto https
+    }
+
+    encode gzip zstd
+}
