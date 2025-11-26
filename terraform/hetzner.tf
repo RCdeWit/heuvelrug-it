@@ -15,21 +15,29 @@ resource "hcloud_server" "vps_reverse_proxy" {
   ssh_keys = [hcloud_ssh_key.main.id]
 }
 
-resource "hetznerdns_zone" "domain" {
+resource "hcloud_zone" "domain" {
   name = var.domain
+  mode = "primary"
   ttl  = 3600
 }
 
-resource "hetznerdns_record" "drive" {
-  zone_id = hetznerdns_zone.domain.id
-  type    = "A"
+
+resource "hcloud_zone_rrset" "drive" {
+  zone    = hcloud_zone.domain.name
   name    = "drive"
-  value   = hcloud_server.vps_reverse_proxy.ipv4_address
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.vps_reverse_proxy.ipv4_address }
+  ]
 }
 
-resource "hetznerdns_record" "letsencrypt" {
-  zone_id = hetznerdns_zone.domain.id
-  type    = "CAA"
+resource "hcloud_zone_rrset" "letsencrypt_caa" {
+  zone    = hcloud_zone.domain.name
   name    = "@"
-  value   = "0 issue \"letsencrypt.org\""
+  type    = "CAA"
+  ttl     = 3600
+  records = [
+    { value = "0 issue \"letsencrypt.org\"" }
+  ]
 }
