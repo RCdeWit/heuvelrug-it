@@ -1,0 +1,18 @@
+  File "/Users/robdewit/Documents/heuvelrug-it/.venv/lib/python3.12/site-packages/pyinfra_cli/cli.py", line 243, in cli
+    _main(*args, **kwargs)
+  File "/Users/robdewit/Documents/heuvelrug-it/.venv/lib/python3.12/site-packages/pyinfra_cli/cli.py", line 353, in _main
+    inventory = make_inventory(
+                ^^^^^^^^^^^^^^^
+  File "/Users/robdewit/Documents/heuvelrug-it/.venv/lib/python3.12/site-packages/pyinfra_cli/inventory.py", line 173, in make_inventory
+    return make_inventory_from_files(inventory, override_data, cwd, group_data_directories)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/robdewit/Documents/heuvelrug-it/.venv/lib/python3.12/site-packages/pyinfra_cli/inventory.py", line 260, in make_inventory_from_files
+    groups = _get_groups_from_filename(inventory_filename)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/robdewit/Documents/heuvelrug-it/.venv/lib/python3.12/site-packages/pyinfra_cli/inventory.py", line 91, in _get_groups_from_filename
+    attrs = exec_file(inventory_filename, return_locals=True)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/robdewit/Documents/heuvelrug-it/.venv/lib/python3.12/site-packages/pyinfra_cli/util.py", line 54, in exec_file
+    with open(filename, "r", encoding="utf-8") as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+IsADirectoryError: [Errno 21] Is a directory: '/Users/robdewit/Documents/heuvelrug-it/pyinfra'

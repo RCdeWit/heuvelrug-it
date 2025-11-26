@@ -1,6 +1,10 @@
 from pathlib import Path
 from pyinfra.operations import server, files
 
+from utils.find_project_root import find_project_root
+
+PROJECT_ROOT = find_project_root()
+
 server.user(
     name="Create deploy user",
     user="deploy",
@@ -13,7 +17,7 @@ server.user(
 
 files.put(
     name="Set secure sudoers file"
-    src="sudoers",
+    src=f"{PROJECT_ROOT}/vps/sudoers",
     dest="/etc/sudoers",
     mode="0440",
     _sudo=True,
