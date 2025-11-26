@@ -4,7 +4,7 @@ resource "hcloud_ssh_key" "main" {
 }
 
 resource "hcloud_server" "vps_reverse_proxy" {
-  name        = "reverse-proxy-vps"
+  name        = "drive-instance"
   image       = "ubuntu-24.04"
   server_type = "cpx32"
   location    = "nbg1"
