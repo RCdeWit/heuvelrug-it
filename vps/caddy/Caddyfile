@@ -12,13 +12,3 @@ drive.dobbertjeduik.nl {
 
     encode gzip zstd
 }
-
-:80 {
-    reverse_proxy localhost:8080 {
-        header_up Host drive.dobbertjeduik.nl
-        header_up X-Forwarded-Host drive.dobbertjeduik.nl
-        header_up X-Forwarded-Proto http
-    }
-
-    encode gzip zstd
-}
