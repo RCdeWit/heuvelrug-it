@@ -12,3 +12,7 @@ drive.dobbertjeduik.nl {
 
     encode gzip zstd
 }
+
+healthcheck.dobbertjeduik.nl {
+    respond "OK" 200
+}
