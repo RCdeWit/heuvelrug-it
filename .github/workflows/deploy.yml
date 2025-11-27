@@ -1,0 +1,139 @@
+name: Deploy Infra
+run-name: Deployment for ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    environment: prod
+    runs-on: ubuntu-latest
+
+    env:
+      PROJECT_ROOT: ${PWD}
+      PYINFRA_INVENTORY: pyinfra/inventory.py
+      TF_VAR_domain: ${{ vars.DOMAIN }}
+      TF_VAR_hcloud_token: ${{ secrets.HCLOUD_API_TOKEN }}
+      TF_VAR_ssh_key_deployment_public: ${{ vars.SSH_KEY_DEPLOYMENT_PUBLIC}}
+      TF_VAR_ssh_key_deployment_private: ${{ secrets.SSH_KEY_DEPLOYMENT_PRIVATE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Write Terraform backend config
+        run: |
+          cat <<EOF > terraform/backend.tfvars
+          access_key = "${{ secrets.TF_S3_ACCESS_KEY }}"
+          secret_key = "${{ secrets.TF_S3_SECRET_KEY }}"
+          endpoints = { s3 = "${{ vars.TF_S3_ENDPOINT }}" }
+          bucket     = "${{ vars.TF_S3_BUCKET }}"
+          region     = "${{ vars.TF_S3_REGION }}"
+          key        = "terraform.tfstate"
+          EOF
+
+      - name: Initialize Terraform
+        working-directory: terraform
+        run: terraform init -backend-config=backend.tfvars
+
+      - name: Validate Terraform
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Apply Terraform
+        working-directory: terraform
+        run: terraform apply -auto-approve
+
+      - name: Store Terraform outputs
+        run: |
+          terraform output -json > terraform-outputs.json
+        working-directory: terraform
+
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: terraform/terraform-outputs.json
+          retention-days: 30
+
+      - name: Extract VPS IP
+        id: tf_output
+        working-directory: terraform
+        run: |
+          ip=$(terraform output -raw vps_ip)
+          echo "ip=$ip" >> $GITHUB_OUTPUT
+
+      - name: Setup SSH agent
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY_DEPLOYMENT_PRIVATE }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
+          # Retry ssh-keyscan with backoff
+          for i in {1..10}; do
+            if ssh-keyscan -H ${{ steps.tf_output.outputs.ip }} >> ~/.ssh/known_hosts 2>/dev/null; then
+              echo "Successfully retrieved host keys"
+              break
+            fi
+            echo "Attempt $i failed, retrying in $((i * 2)) seconds..."
+            sleep $((i * 2))
+            if [ $i -eq 10 ]; then
+              echo "Failed to retrieve host keys after 10 attempts"
+              exit 1
+            fi
+          done
+
+      - name: Determine if deployment is fresh
+        id: check_fresh
+        run: |
+          if ssh -o StrictHostKeyChecking=no root@${{ steps.tf_output.outputs.ip }} 'id deploy' 2>/dev/null; then
+            echo "fresh=false" >> $GITHUB_OUTPUT
+          else
+            echo "fresh=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sync and activate environment
+        run: |
+          uv sync
+          source .venv/bin/activate
+
+      - name: Deploy to VPS with PyInfra
+        run: |
+          CMD="uv run scripts/deploy_reverse_proxy.py --auto-approve"
+          if [ "${{ steps.check_fresh.outputs.fresh }}" = "true" ]; then
+            CMD="$CMD --fresh"
+          fi
+          eval "$CMD"
+
+      - name: Health check Caddy
+        run: |
+          echo "Checking Caddy on healthcheck.${{ vars.DOMAIN }} (HTTPS)..."
+          status_code=$(curl -s -o /dev/null -w "%{http_code}" https://healthcheck.rcdw.nl)
+          if [ "$status_code" -ne 200 ]; then
+            echo "Caddy health check failed (status code: $status_code)"
+            exit 1
+          fi
+          echo "Caddy is healthy (status code: $status_code)"
