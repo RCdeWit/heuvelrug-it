@@ -22,12 +22,6 @@ variable "hcloud_token" {
   sensitive   = true
 }
 
-variable "hetznerdns_token" {
-  type        = string
-  description = "Hetzner DNS API token"
-  sensitive   = true
-}
-
 variable "ssh_key_deployment_public" {
   type        = string
   description = "Public key for deployments on Hetzner"
