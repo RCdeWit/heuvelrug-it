@@ -1,11 +1,12 @@
 import os
 
+from io import StringIO
 from pyinfra.operations import apt, server, files, systemd
 from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
-CADDY_URL = "https://caddyserver.com/api/download?os=linux&arch=x86&p=github.com%2Fcaddy-dns%2Fhetzner"
-HETZNER_API_TOKEN = os.environ["TF_VAR_hetznerdns_token"]
+CADDY_URL = "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com%2Fcaddy-dns%2Fhetzner"
+HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
@@ -46,7 +47,7 @@ server.shell(
 
 files.put(
     name="Upload docker-compose for AIO",
-    src="../vps/docker/nextcloud-aio.yml",
+    src=f"{PROJECT_ROOT}/vps/docker/nextcloud-aio.yml",
     dest="/opt/nextcloud-aio/docker-compose.yml",
     mode="0644",
     _sudo=True,
@@ -72,10 +73,18 @@ files.download(
     _sudo=True,
 )
 
+server.user(
+    name="Create Caddy system user",
+    user="caddy",
+    system=True,
+    home="/var/lib/caddy",
+    shell="/usr/sbin/nologin",
+    _sudo=True,
+)
+
 server.shell(
-    name="Create Caddy user and directories",
+    name="Create Caddy directories",
     commands=[
-        "useradd --system --group --home /var/lib/caddy --shell /usr/sbin/nologin caddy || true",
         "mkdir -p /etc/caddy /var/lib/caddy /var/log/caddy",
         "chown -R caddy:caddy /etc/caddy /var/lib/caddy /var/log/caddy",
     ],
