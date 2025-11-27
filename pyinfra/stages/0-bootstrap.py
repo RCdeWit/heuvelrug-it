@@ -16,7 +16,7 @@ server.user(
 )
 
 files.put(
-    name="Set secure sudoers file"
+    name="Set secure sudoers file",
     src=f"{PROJECT_ROOT}/vps/sudoers",
     dest="/etc/sudoers",
     mode="0440",
