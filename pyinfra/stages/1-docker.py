@@ -45,14 +45,14 @@ apt.packages(
 
 server.shell(
     name="Create AIO directory",
-    commands=["mkdir -p /opt/nextcloud-aio"],
+    commands=["mkdir -p /opt/nextcloud"],
     _sudo=True,
 )
 
 server.shell(
     name="Create Nextcloud directories on volume",
     commands=[
-        f"mkdir -p {MOUNT_POINT}/nextcloud_aio_mastercontainer",
+        f"mkdir -p {MOUNT_POINT}/nextcloud_mastercontainer",
         f"mkdir -p {MOUNT_POINT}/ncdata",
         f"mkdir -p {MOUNT_POINT}/nextcloud_db",
         f"mkdir -p {MOUNT_POINT}/nextcloud_data"
@@ -63,20 +63,20 @@ server.shell(
 server.shell(
     name="Create Docker volume with bind mount to attached storage",
     commands=[
-        f"docker volume inspect nextcloud_aio_mastercontainer >/dev/null 2>&1 || "
+        f"docker volume inspect nextcloud_mastercontainer >/dev/null 2>&1 || "
         f"docker volume create --driver local "
         f"--opt type=none "
         f"--opt o=bind "
-        f"--opt device={MOUNT_POINT}/nextcloud_aio_mastercontainer "
-        f"nextcloud_aio_mastercontainer"
+        f"--opt device={MOUNT_POINT}/nextcloud_mastercontainer "
+        f"nextcloud_mastercontainer"
     ],
     _sudo=True,
 )
 
 files.template(
-    name="Upload docker-compose for AIO",
+    name="Upload docker-compose file for Nextcloud",
     src=f"{PROJECT_ROOT}/vps/docker/nextcloud.yml.j2",
-    dest="/opt/nextcloud-aio/docker-compose.yml",
+    dest="/opt/nextcloud/docker-compose.yml",
     mode="0644",
     mount_point=MOUNT_POINT,
     _sudo=True,
@@ -89,15 +89,15 @@ files.template(
         f"NEXTCLOUD_ADMIN_USER={NEXTCLOUD_ADMIN_USER}\n"
         f"NEXTCLOUD_ADMIN_PASSWORD={NEXTCLOUD_ADMIN_PASSWORD}\n"
     ),
-    dest="/opt/nextcloud-aio/.env",
+    dest="/opt/nextcloud/.env",
     mode="0600",
     _sudo=True,
 )
 
 server.shell(
-    name="Launch Nextcloud AIO",
+    name="Launch Nextcloud",
     commands=[
-        "docker compose -f /opt/nextcloud-aio/docker-compose.yml up -d"
+        "docker compose -f /opt/nextcloud/docker-compose.yml up -d"
     ],
     _sudo=True,
 )
