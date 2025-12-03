@@ -1,0 +1,36 @@
+services:
+  nextcloud-db:
+    image: postgres:15-alpine
+    restart: always
+    volumes:
+      - nextcloud_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  nextcloud:
+    image: nextcloud:latest
+    restart: always
+    depends_on:
+      - nextcloud-db
+    volumes:
+      - nextcloud_data:/var/www/html
+      - {{ mount_point }}/ncdata:/var/www/html/data
+    environment:
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      NEXTCLOUD_TRUSTED_DOMAINS: drive.dobbertjeduik.nl
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: drive.dobbertjeduik.nl
+      OVERWRITECLIURL: https://drive.dobbertjeduik.nl
+    ports:
+      - 8080:80
+
+volumes:
+  nextcloud_db:
+  nextcloud_data:
