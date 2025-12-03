@@ -15,6 +15,14 @@ resource "hcloud_server" "drive_instance" {
   ssh_keys = [hcloud_ssh_key.main.id]
 }
 
+resource "hcloud_volume" "volume1" {
+  name      = "volume1"
+  size      = 50
+  server_id = hcloud_server.drive_instance.id
+  automount = true
+  format    = "ext4"
+}
+
 resource "hcloud_zone" "domain" {
   name = var.domain
   mode = "primary"
@@ -25,6 +33,16 @@ resource "hcloud_zone" "domain" {
 resource "hcloud_zone_rrset" "drive" {
   zone    = hcloud_zone.domain.name
   name    = "drive"
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.drive_instance.ipv4_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "healthcheck" {
+  zone    = hcloud_zone.domain.name
+  name    = "healthcheck"
   type    = "A"
   ttl     = 3600
   records = [
