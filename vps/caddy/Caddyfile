@@ -4,11 +4,7 @@ drive.dobbertjeduik.nl {
         resolvers 8.8.8.8:53 1.1.1.1:53
     }
 
-    reverse_proxy localhost:8080 {
-        header_up Host drive.dobbertjeduik.nl
-        header_up X-Forwarded-Host drive.dobbertjeduik.nl
-        header_up X-Forwarded-Proto https
-    }
+    reverse_proxy http://localhost:8080
 
     encode gzip zstd
 }
