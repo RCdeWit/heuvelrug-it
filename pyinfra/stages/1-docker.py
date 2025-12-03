@@ -1,5 +1,7 @@
 import os
 
+from io import StringIO
+
 from pyinfra import host
 from pyinfra.facts.server import Command
 from pyinfra.operations import apt, server, files
@@ -8,6 +10,8 @@ from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
 POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
+NEXTCLOUD_ADMIN_USER = os.environ.get("NEXTCLOUD_ADMIN_USER", "admin")
+NEXTCLOUD_ADMIN_PASSWORD = os.environ["NEXTCLOUD_ADMIN_PASSWORD"]
 
 MOUNT_POINT = host.get_fact(
     Command,
@@ -75,9 +79,21 @@ files.template(
     dest="/opt/nextcloud-aio/docker-compose.yml",
     mode="0644",
     mount_point=MOUNT_POINT,
-    postgres_password=POSTGRES_PASSWORD,
     _sudo=True,
 )
+
+files.template(
+    name="Create .env file with secrets",
+    src=StringIO(
+        f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}\n"
+        f"NEXTCLOUD_ADMIN_USER={NEXTCLOUD_ADMIN_USER}\n"
+        f"NEXTCLOUD_ADMIN_PASSWORD={NEXTCLOUD_ADMIN_PASSWORD}\n"
+    ),
+    dest="/opt/nextcloud-aio/.env",
+    mode="0600",
+    _sudo=True,
+)
+
 server.shell(
     name="Launch Nextcloud AIO",
     commands=[
