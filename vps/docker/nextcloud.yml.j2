@@ -33,4 +33,14 @@ services:
 
 volumes:
   nextcloud_db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ mount_point }}/nextcloud_db
   nextcloud_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ mount_point }}/nextcloud_data

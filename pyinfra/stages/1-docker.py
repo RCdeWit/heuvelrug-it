@@ -49,7 +49,9 @@ server.shell(
     name="Create Nextcloud directories on volume",
     commands=[
         f"mkdir -p {MOUNT_POINT}/nextcloud_aio_mastercontainer",
-        f"mkdir -p {MOUNT_POINT}/ncdata"
+        f"mkdir -p {MOUNT_POINT}/ncdata",
+        f"mkdir -p {MOUNT_POINT}/nextcloud_db",
+        f"mkdir -p {MOUNT_POINT}/nextcloud_data"
     ],
     _sudo=True,
 )
