@@ -17,6 +17,9 @@ services:
     volumes:
       - nextcloud_data:/var/www/html
       - {{ mount_point }}/ncdata:/var/www/html/data
+      - ./proxy.config.php:/var/www/html/config/proxy.config.php:ro
+      - ./nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
+    entrypoint: ["/custom-entrypoint.sh"]
     environment:
       POSTGRES_HOST: nextcloud-db
       POSTGRES_DB: nextcloud

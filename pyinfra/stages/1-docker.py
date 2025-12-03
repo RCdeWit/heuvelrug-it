@@ -82,6 +82,22 @@ files.template(
     _sudo=True,
 )
 
+files.put(
+    name="Upload Nextcloud proxy configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/proxy.config.php",
+    dest="/opt/nextcloud/proxy.config.php",
+    mode="0644",
+    _sudo=True,
+)
+
+files.put(
+    name="Upload Nextcloud custom entrypoint script",
+    src=f"{PROJECT_ROOT}/vps/docker/nextcloud-entrypoint.sh",
+    dest="/opt/nextcloud/nextcloud-entrypoint.sh",
+    mode="0755",
+    _sudo=True,
+)
+
 files.template(
     name="Create .env file with secrets",
     src=StringIO(
