@@ -18,6 +18,12 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set trusted_pro
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set forwarded_for_headers 0 --value="HTTP_X_FORWARDED_FOR"' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set maintenance_window_start --value=2 --type=integer' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set default_phone_region --value="NL"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set backgroundjobs_mode --value="cron"' || true
+
+# Set up cron job for background tasks
+echo "Setting up cron for background jobs..."
+echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
+service cron start || true
 
 # Disable AppAPI
 echo "Disabling AppAPI..."
