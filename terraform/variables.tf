@@ -1,3 +1,9 @@
+variable "project_name" {
+  type        = string
+  description = "Client/project name used as prefix for all resources"
+  default     = "heuvelrug"
+}
+
 variable "environment" {
   type        = string
   description = "Environment in which to deploy resources"

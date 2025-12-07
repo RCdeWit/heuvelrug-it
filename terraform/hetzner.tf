@@ -1,10 +1,14 @@
+resource "random_id" "suffix" {
+  byte_length = 3  # 3 bytes = 6 hex characters
+}
+
 resource "hcloud_ssh_key" "main" {
-  name       = "hetzner-deployment-key"
+  name       = "${var.project_name}-${random_id.suffix.hex}-deployment-key"
   public_key = var.ssh_key_deployment_public
 }
 
 resource "hcloud_server" "drive_instance" {
-  name        = "drive-instance"
+  name        = "${var.project_name}-${random_id.suffix.hex}-nextcloud"
   image       = "ubuntu-24.04"
   server_type = "cpx32"
   location    = "nbg1"
@@ -16,7 +20,7 @@ resource "hcloud_server" "drive_instance" {
 }
 
 resource "hcloud_volume" "volume1" {
-  name      = "volume1"
+  name      = "${var.project_name}-${random_id.suffix.hex}-data"
   size      = 50
   server_id = hcloud_server.drive_instance.id
   automount = true
@@ -61,9 +65,8 @@ resource "hcloud_zone_rrset" "letsencrypt_caa" {
 }
 
 resource "minio_s3_bucket" "nextcloud_backups" {
-  bucket        = "nextcloud-backups"
-  bucket_region = var.hetzner_region
-  acl           = "private"
+  bucket = "${var.project_name}-${random_id.suffix.hex}-nextcloud-backups"
+  acl    = "private"
 
   lifecycle {
     prevent_destroy = true

@@ -1,6 +1,13 @@
 terraform {
   required_version = "1.9.5"
 
+  required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+
   backend "s3" {
     bucket = "heuvelrugterraformstate"
     key    = "terraform.tfstate"
@@ -43,6 +50,7 @@ provider "hcloud" {
 
 provider "minio" {
   minio_server   = "${var.hetzner_region}.your-objectstorage.com"
+  minio_region   = var.hetzner_region
   minio_user     = var.hetzner_s3_access_key
   minio_password = var.hetzner_s3_secret_key
   minio_ssl      = true

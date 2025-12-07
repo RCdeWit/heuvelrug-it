@@ -22,6 +22,11 @@ output "s3_bucket" {
   value       = minio_s3_bucket.nextcloud_backups.bucket
 }
 
+output "project_prefix" {
+  description = "Project prefix used for resource naming"
+  value       = "${var.project_name}-${random_id.suffix.hex}"
+}
+
 output "s3_access_key" {
   description = "S3 access key"
   value       = var.hetzner_s3_access_key

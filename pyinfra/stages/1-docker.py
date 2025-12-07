@@ -18,7 +18,8 @@ AWS_ACCESS_KEY_ID = os.environ["TF_VAR_hetzner_s3_access_key"]
 AWS_SECRET_ACCESS_KEY = os.environ["TF_VAR_hetzner_s3_secret_key"]
 HETZNER_REGION = os.environ.get("TF_VAR_hetzner_region", "nbg1")
 AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.your-objectstorage.com"
-AWS_S3_BUCKET = "nextcloud-backups"
+# Bucket name comes from Terraform output: terraform output -raw s3_bucket
+AWS_S3_BUCKET = os.environ.get("TF_OUTPUT_S3_BUCKET", "heuvelrug-nextcloud-backups")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
 
 MOUNT_POINT = host.get_fact(
