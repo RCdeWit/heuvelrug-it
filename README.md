@@ -102,9 +102,18 @@ cp .env.example .env
 
 Edit `.env` and fill in all required credentials:
 - Hetzner Cloud API token
-- S3 access keys for Object Storage
+- S3 access keys for Object Storage (used for both Terraform state and Restic backups)
 - SSH public key
 - Generate passwords for PostgreSQL, Redis, Nextcloud, and Restic
+
+After running `terraform apply`, update these values from Terraform outputs:
+```bash
+# Get the S3 endpoint and bucket name created by Terraform
+export AWS_S3_ENDPOINT=$(terraform output -raw s3_endpoint)
+export AWS_S3_BUCKET=$(terraform output -raw s3_bucket)
+```
+
+Then add these to your `.env` file for the backup container to use.
 
 ### 2. Configure Domain Nameservers
 
@@ -278,11 +287,9 @@ docker compose down
 # Install restic
 apt-get install restic
 
-# Configure environment
-export AWS_ACCESS_KEY_ID=<from .env>
-export AWS_SECRET_ACCESS_KEY=<from .env>
-export RESTIC_PASSWORD=<from .env>
-export RESTIC_REPO="s3:https://nbg1.your-objectstorage.com/nextcloud-backups"
+# Configure environment (source from your .env file or set manually)
+source /path/to/.env  # or export variables manually
+export RESTIC_REPO="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
 
 # List snapshots and choose latest
 restic snapshots
@@ -356,6 +363,35 @@ docker logs nextcloud-nextcloud-db-1
 # Caddy logs
 sudo journalctl -u caddy -f
 ```
+
+### Managing Backups
+
+The backup container runs automated daily backups at 2 AM using Restic. To manually interact with backups:
+
+```bash
+# View backup snapshots
+docker exec nextcloud-backup-1 /bin/sh -c 'restic -r s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET} snapshots --tag nextcloud'
+
+# Or set the repository variable for easier commands
+docker exec -it nextcloud-backup-1 /bin/sh
+export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
+restic snapshots --tag nextcloud
+restic stats --mode restore-size
+
+# Manually trigger a backup
+docker exec nextcloud-backup-1 /bin/sh /backup.sh
+
+# Check backup logs
+docker logs nextcloud-backup-1
+```
+
+The backup script (`vps/nextcloud/backup.sh`) automatically:
+- Enables Nextcloud maintenance mode
+- Creates PostgreSQL database dump
+- Backs up database, Nextcloud files, and user data
+- Disables maintenance mode
+- Prunes old backups based on retention policy (30 days daily, 52 weeks weekly, 24 months monthly)
+- Runs integrity checks weekly on Sundays
 
 ## Development
 
