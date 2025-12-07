@@ -19,6 +19,7 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set forwarded_f
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set maintenance_window_start --value=2 --type=integer' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set default_phone_region --value="NL"' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set backgroundjobs_mode --value="cron"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set skeletondirectory --value=""' || true
 
 # Set up cron job for background tasks
 echo "Setting up cron for background jobs..."
