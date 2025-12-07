@@ -23,7 +23,6 @@ services:
     volumes:
       - nextcloud_data:/var/www/html
       - {{ mount_point }}/ncdata:/var/www/html/data
-      - ./nextcloud/nextcloud.config.php:/var/www/html/config/nextcloud.config.php:ro
       - ./nextcloud/nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
     entrypoint: ["/custom-entrypoint.sh"]
     environment:

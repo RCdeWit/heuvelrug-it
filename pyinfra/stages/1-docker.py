@@ -98,14 +98,6 @@ server.shell(
 )
 
 files.put(
-    name="Upload Nextcloud configuration",
-    src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud.config.php",
-    dest="/opt/nextcloud/nextcloud/nextcloud.config.php",
-    mode="0644",
-    _sudo=True,
-)
-
-files.put(
     name="Upload Nextcloud custom entrypoint script",
     src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud-entrypoint.sh",
     dest="/opt/nextcloud/nextcloud/nextcloud-entrypoint.sh",

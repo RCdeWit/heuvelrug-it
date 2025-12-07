@@ -12,6 +12,13 @@ while [ ! -f /var/www/html/config/config.php ]; do
 done
 sleep 15
 
+# Apply custom configuration settings
+echo "Applying custom configuration..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set trusted_proxies 0 --value="172.16.0.0/12"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set forwarded_for_headers 0 --value="HTTP_X_FORWARDED_FOR"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set maintenance_window_start --value=2 --type=integer' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set default_phone_region --value="NL"' || true
+
 # Disable AppAPI
 echo "Disabling AppAPI..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:disable app_api' 2>/dev/null || true
