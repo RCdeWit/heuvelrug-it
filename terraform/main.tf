@@ -1,6 +1,24 @@
 terraform {
   required_version = "1.9.5"
 
+  backend "s3" {
+    bucket = "heuvelrugterraformstate"
+    key    = "terraform.tfstate"
+    region = "nbg1"
+
+    endpoints = {
+      s3 = "https://nbg1.your-objectstorage.com"
+    }
+
+    # Required for Hetzner Object Storage (Ceph S3 compatibility)
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    use_path_style              = true
+    skip_s3_checksum            = true
+  }
+
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
@@ -24,7 +42,7 @@ provider "hcloud" {
 }
 
 provider "minio" {
-  minio_server   = "fsn1.your-objectstorage.com"
+  minio_server   = "nbg1.your-objectstorage.com"
   minio_user     = var.hetzner_s3_access_key
   minio_password = var.hetzner_s3_secret_key
   minio_ssl      = true

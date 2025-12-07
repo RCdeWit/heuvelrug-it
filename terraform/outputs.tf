@@ -9,7 +9,7 @@ output "volume_device" {
 
 output "s3_endpoint" {
   description = "Hetzner Object Storage endpoint"
-  value       = "https://fsn1.your-objectstorage.com"
+  value       = "https://nbg1.your-objectstorage.com"
 }
 
 output "s3_bucket" {

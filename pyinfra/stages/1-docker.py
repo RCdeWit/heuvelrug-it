@@ -16,7 +16,7 @@ REDIS_PASSWORD = os.environ["REDIS_PASSWORD"]
 RESTIC_PASSWORD = os.environ["RESTIC_PASSWORD"]
 AWS_ACCESS_KEY_ID = os.environ["TF_VAR_hetzner_s3_access_key"]
 AWS_SECRET_ACCESS_KEY = os.environ["TF_VAR_hetzner_s3_secret_key"]
-AWS_S3_ENDPOINT = "https://fsn1.your-objectstorage.com"
+AWS_S3_ENDPOINT = "https://nbg1.your-objectstorage.com"
 AWS_S3_BUCKET = "nextcloud-backups"
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
 
