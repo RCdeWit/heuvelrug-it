@@ -6,7 +6,8 @@ echo "[$(date)] Starting Nextcloud backup..."
 # Backup configuration
 BACKUP_DIR="/backup"
 DB_BACKUP_FILE="${BACKUP_DIR}/nextcloud_db.sql"
-RESTIC_REPO="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
+# Use RESTIC_REPOSITORY if set, otherwise construct from endpoint and bucket
+RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}}"
 
 # Create backup directory if it doesn't exist
 mkdir -p "${BACKUP_DIR}"

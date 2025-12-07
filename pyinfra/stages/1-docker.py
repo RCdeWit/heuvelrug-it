@@ -7,6 +7,7 @@ from pyinfra.facts.server import Command
 from pyinfra.operations import apt, server, files
 
 from utils.find_project_root import find_project_root
+from utils.get_terraform_output import get_terraform_output
 
 PROJECT_ROOT = find_project_root()
 POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
@@ -18,8 +19,8 @@ AWS_ACCESS_KEY_ID = os.environ["TF_VAR_hetzner_s3_access_key"]
 AWS_SECRET_ACCESS_KEY = os.environ["TF_VAR_hetzner_s3_secret_key"]
 HETZNER_REGION = os.environ.get("TF_VAR_hetzner_region", "nbg1")
 AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.your-objectstorage.com"
-# Bucket name comes from Terraform output: terraform output -raw s3_bucket
-AWS_S3_BUCKET = os.environ.get("TF_OUTPUT_S3_BUCKET", "heuvelrug-nextcloud-backups")
+# Get bucket name dynamically from Terraform outputs
+AWS_S3_BUCKET = get_terraform_output("s3_bucket")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
 
 MOUNT_POINT = host.get_fact(

@@ -106,14 +106,7 @@ Edit `.env` and fill in all required credentials:
 - SSH public key
 - Generate passwords for PostgreSQL, Redis, Nextcloud, and Restic
 
-After running `terraform apply`, update these values from Terraform outputs:
-```bash
-# Get the S3 endpoint and bucket name created by Terraform
-export AWS_S3_ENDPOINT=$(terraform output -raw s3_endpoint)
-export AWS_S3_BUCKET=$(terraform output -raw s3_bucket)
-```
-
-Then add these to your `.env` file for the backup container to use.
+**Note**: The S3 bucket name for backups is automatically retrieved from Terraform outputs during deployment. The PyInfra script will construct the S3 endpoint from your configured region (`TF_VAR_hetzner_region`).
 
 ### 2. Configure Domain Nameservers
 
@@ -369,20 +362,27 @@ sudo journalctl -u caddy -f
 The backup container runs automated daily backups at 2 AM using Restic. To manually interact with backups:
 
 ```bash
-# View backup snapshots
-docker exec nextcloud-backup-1 /bin/sh -c 'restic -r s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET} snapshots --tag nextcloud'
+# View backup snapshots (RESTIC_REPOSITORY is pre-configured)
+docker exec nextcloud-backup-1 restic snapshots --tag nextcloud
 
-# Or set the repository variable for easier commands
-docker exec -it nextcloud-backup-1 /bin/sh
-export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
-restic snapshots --tag nextcloud
-restic stats --mode restore-size
+# View repository statistics
+docker exec nextcloud-backup-1 restic stats --mode restore-size
+
+# List all snapshots with details
+docker exec nextcloud-backup-1 restic snapshots
 
 # Manually trigger a backup
 docker exec nextcloud-backup-1 /bin/sh /backup.sh
 
 # Check backup logs
 docker logs nextcloud-backup-1
+
+# Interactive shell (for more complex operations)
+docker exec -it nextcloud-backup-1 /bin/sh
+# Inside the container, restic commands work directly:
+# restic snapshots
+# restic check
+# restic restore <snapshot-id> --target /restore
 ```
 
 The backup script (`vps/nextcloud/backup.sh`) automatically:
