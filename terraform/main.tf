@@ -1,13 +1,6 @@
 terraform {
   required_version = "1.9.5"
 
-  required_providers {
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
-  }
-
   backend "s3" {
     bucket = "heuvelrugterraformstate"
     key    = "terraform.tfstate"
@@ -32,14 +25,19 @@ terraform {
       version = "~> 1.45"
     }
 
-    tailscale = {
-      source  = "tailscale/tailscale"
-      version = "0.15.0"
-    }
-
     minio = {
       source  = "aminueza/minio"
       version = "~> 3.3"
+    }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "0.15.0"
     }
   }
 }
