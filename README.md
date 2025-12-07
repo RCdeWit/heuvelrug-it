@@ -6,7 +6,7 @@ Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud insta
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │ Hetzner Cloud (Nuremberg - nbg1)                            │
 │                                                              │
@@ -106,14 +106,26 @@ Edit `.env` and fill in all required credentials:
 - SSH public key
 - Generate passwords for PostgreSQL, Redis, Nextcloud, and Restic
 
-### 2. Create Object Storage Buckets
+### 2. Configure Domain Nameservers
+
+Point your domain to Hetzner's authoritative nameservers:
+1. Log in to your domain registrar
+2. Update nameservers to Hetzner's DNS:
+   - `hydrogen.ns.hetzner.com`
+   - `oxygen.ns.hetzner.com`
+   - `helium.ns.hetzner.de`
+3. Wait for DNS propagation (can take up to 48 hours)
+
+For detailed instructions, see [Hetzner's authoritative nameservers documentation](https://docs.hetzner.com/dns-console/dns/general/authoritative-name-servers/).
+
+### 3. Create Object Storage Buckets
 
 Via Hetzner Cloud Console:
 1. Navigate to Object Storage
 2. Create bucket `heuvelrugterraformstate` in nbg1 (Nuremberg)
 3. Create access keys and add to `.env`
 
-### 3. Provision Infrastructure
+### 4. Provision Infrastructure
 
 ```bash
 # Load environment variables
@@ -130,7 +142,7 @@ terraform apply
 # Note the VPS IP address from outputs
 ```
 
-### 4. Configure VPS
+### 5. Configure VPS
 
 ```bash
 # Return to project root
@@ -146,7 +158,7 @@ uv run pyinfra/configure_vps.py --fresh
 uv run pyinfra/configure_vps.py
 ```
 
-### 5. Verify Deployment
+### 6. Verify Deployment
 
 1. Visit `https://drive.dobbertjeduik.nl`
 2. Log in with Nextcloud admin credentials from `.env`
@@ -362,7 +374,7 @@ uv run pyinfra/configure_vps.py --dry
 
 ### Project Structure
 
-```
+```text
 .
 ├── terraform/           # Infrastructure provisioning
 │   ├── main.tf         # Terraform configuration
@@ -456,8 +468,8 @@ Monthly costs (excluding VAT):
 
 For issues or questions:
 1. Check logs as described in Troubleshooting section
-2. Review Nextcloud documentation: https://docs.nextcloud.com
-3. Review Restic documentation: https://restic.readthedocs.io
+2. Review [Nextcloud documentation](https://docs.nextcloud.com)
+3. Review [Restic documentation](https://restic.readthedocs.io)
 
 ## License
 
