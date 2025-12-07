@@ -12,6 +12,7 @@ PROJECT_ROOT = find_project_root()
 POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
 NEXTCLOUD_ADMIN_USER = os.environ.get("NEXTCLOUD_ADMIN_USER", "admin")
 NEXTCLOUD_ADMIN_PASSWORD = os.environ["NEXTCLOUD_ADMIN_PASSWORD"]
+REDIS_PASSWORD = os.environ["REDIS_PASSWORD"]
 
 MOUNT_POINT = host.get_fact(
     Command,
@@ -104,6 +105,7 @@ files.template(
         f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}\n"
         f"NEXTCLOUD_ADMIN_USER={NEXTCLOUD_ADMIN_USER}\n"
         f"NEXTCLOUD_ADMIN_PASSWORD={NEXTCLOUD_ADMIN_PASSWORD}\n"
+        f"REDIS_PASSWORD={REDIS_PASSWORD}\n"
     ),
     dest="/opt/nextcloud/.env",
     mode="0600",

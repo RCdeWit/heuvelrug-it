@@ -9,16 +9,22 @@ services:
       POSTGRES_USER: nextcloud
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+
   nextcloud:
     image: nextcloud:latest
     restart: always
     depends_on:
       - nextcloud-db
+      - redis
     volumes:
       - nextcloud_data:/var/www/html
       - {{ mount_point }}/ncdata:/var/www/html/data
-      - ./proxy.config.php:/var/www/html/config/proxy.config.php:ro
-      - ./nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
+      - ../nextcloud/nextcloud.config.php:/var/www/html/config/nextcloud.config.php:ro
+      - ../nextcloud/nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
     entrypoint: ["/custom-entrypoint.sh"]
     environment:
       POSTGRES_HOST: nextcloud-db
@@ -27,6 +33,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_HOST_PORT: 6379
+      REDIS_HOST_PASSWORD: ${REDIS_PASSWORD}
       NEXTCLOUD_TRUSTED_DOMAINS: drive.dobbertjeduik.nl
       OVERWRITEPROTOCOL: https
       OVERWRITEHOST: drive.dobbertjeduik.nl

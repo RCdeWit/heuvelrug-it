@@ -4,6 +4,8 @@ drive.dobbertjeduik.nl {
         resolvers 8.8.8.8:53 1.1.1.1:53
     }
 
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
     reverse_proxy http://localhost:8080
 
     encode gzip zstd
