@@ -238,26 +238,86 @@ restic restore <snapshot-id> \
   --include /backup/nextcloud_db.sql
 ```
 
-#### 3. Restore Database
+#### 3. Restore to Production
+
+**⚠️ Warning**: This will overwrite your production data. Always test with a temporary restore first!
+
+**Note**: The backup container has read-only access to data directories for safety. To restore to production, you must run restic from the VPS host (not from inside the container).
 
 ```bash
-# Copy restored database dump to container
-docker cp /tmp/restore/backup/nextcloud_db.sql nextcloud-nextcloud-db-1:/tmp/
-
-# Enable maintenance mode
-docker exec nextcloud-nextcloud-1 \
+# 1. Enable maintenance mode
+sudo docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'
 
-# Restore database
-docker exec nextcloud-nextcloud-db-1 \
-  psql -U nextcloud -d nextcloud < /tmp/nextcloud_db.sql
+# 2. Stop services (all of them, including backup container)
+cd /opt/nextcloud
+sudo docker compose down
 
-# Disable maintenance mode
-docker exec nextcloud-nextcloud-1 \
+# 3. Set environment variables for restic
+# The .env file is owned by root, so extract values with sudo
+export RESTIC_PASSWORD=$(sudo grep '^RESTIC_PASSWORD=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_ACCESS_KEY_ID=$(sudo grep '^AWS_ACCESS_KEY_ID=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_SECRET_ACCESS_KEY=$(sudo grep '^AWS_SECRET_ACCESS_KEY=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_S3_ENDPOINT=$(sudo grep '^AWS_S3_ENDPOINT=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_S3_BUCKET=$(sudo grep '^AWS_S3_BUCKET=' /opt/nextcloud/.env | cut -d= -f2-)
+export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
+
+# 4. Find the mount point
+MOUNT_POINT=$(sudo findmnt -n -o TARGET /dev/disk/by-id/scsi-0HC_Volume_* | grep -v '/var/lib/docker')
+
+# 5. List snapshots and choose one to restore
+restic snapshots --tag nextcloud
+# Note the snapshot ID from the output (e.g., "a1b2c3d4")
+
+# 6. Restore data directly to the mount point
+# NOTE: Restic restore is ADDITIVE - it doesn't delete extra files
+# For a clean restore (exact snapshot state), clear directories first:
+sudo rm -rf ${MOUNT_POINT}/nextcloud_db/*
+sudo rm -rf ${MOUNT_POINT}/nextcloud_data/*
+sudo rm -rf ${MOUNT_POINT}/ncdata/*
+
+# Now restore
+sudo -E restic restore <snapshot-id> --target ${MOUNT_POINT}
+
+# This restores to the mount point structure:
+# - ${MOUNT_POINT}/nextcloud_db → PostgreSQL data
+# - ${MOUNT_POINT}/nextcloud_data → Nextcloud app data
+# - ${MOUNT_POINT}/ncdata → User files
+
+# 7. Start all services
+cd /opt/nextcloud
+sudo docker compose up -d
+
+# 8. Disable maintenance mode and repair
+sudo docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off'
+sudo docker exec nextcloud-nextcloud-1 \
+  su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'
 ```
 
-#### 4. Complete Disaster Recovery
+#### 4. Restore Specific Files Only
+
+If you only need to restore specific files (e.g., accidentally deleted user files):
+
+```bash
+# Restore to temp location first
+docker exec nextcloud-backup-1 restic restore <snapshot-id> \
+  --target /tmp/restore \
+  --include /mnt/data/ncdata/username/files/important-file.pdf
+
+# Copy to production (from VPS)
+cp /tmp/restore/mnt/data/ncdata/username/files/important-file.pdf \
+   ${MOUNT_POINT}/ncdata/username/files/
+
+# Fix permissions
+chown -R www-data:www-data ${MOUNT_POINT}/ncdata/username/files/
+
+# Trigger Nextcloud file scan
+docker exec nextcloud-nextcloud-1 \
+  su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan username'
+```
+
+#### 5. Complete Disaster Recovery
 
 For complete infrastructure loss:
 
@@ -277,12 +337,15 @@ cd /opt/nextcloud
 docker compose down
 
 # 4. Restore data from backup (on VPS)
-# Install restic
-apt-get install restic
+# Restic is already installed by PyInfra
 
-# Configure environment (source from your .env file or set manually)
-source /path/to/.env  # or export variables manually
-export RESTIC_REPO="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
+# Configure environment (extract from root-owned .env file)
+export RESTIC_PASSWORD=$(sudo grep '^RESTIC_PASSWORD=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_ACCESS_KEY_ID=$(sudo grep '^AWS_ACCESS_KEY_ID=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_SECRET_ACCESS_KEY=$(sudo grep '^AWS_SECRET_ACCESS_KEY=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_S3_ENDPOINT=$(sudo grep '^AWS_S3_ENDPOINT=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_S3_BUCKET=$(sudo grep '^AWS_S3_BUCKET=' /opt/nextcloud/.env | cut -d= -f2-)
+export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
 
 # List snapshots and choose latest
 restic snapshots

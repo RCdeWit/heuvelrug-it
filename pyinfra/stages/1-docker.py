@@ -29,8 +29,8 @@ MOUNT_POINT = host.get_fact(
 )
 
 apt.packages(
-    name="Install dependencies for Docker",
-    packages=["ca-certificates", "curl", "gnupg"],
+    name="Install dependencies for Docker and backup tools",
+    packages=["ca-certificates", "curl", "gnupg", "restic"],
     update=True,
     _sudo=True,
 )
