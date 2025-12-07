@@ -4,10 +4,10 @@ terraform {
   backend "s3" {
     bucket = "heuvelrugterraformstate"
     key    = "terraform.tfstate"
-    region = "nbg1"
+    region = "nbg1"  # Must match bucket region - update manually if changed
 
     endpoints = {
-      s3 = "https://nbg1.your-objectstorage.com"
+      s3 = "https://nbg1.your-objectstorage.com"  # Must match bucket region
     }
 
     # Required for Hetzner Object Storage (Ceph S3 compatibility)
@@ -42,7 +42,7 @@ provider "hcloud" {
 }
 
 provider "minio" {
-  minio_server   = "nbg1.your-objectstorage.com"
+  minio_server   = "${var.hetzner_region}.your-objectstorage.com"
   minio_user     = var.hetzner_s3_access_key
   minio_password = var.hetzner_s3_secret_key
   minio_ssl      = true

@@ -9,7 +9,12 @@ output "volume_device" {
 
 output "s3_endpoint" {
   description = "Hetzner Object Storage endpoint"
-  value       = "https://nbg1.your-objectstorage.com"
+  value       = "https://${var.hetzner_region}.your-objectstorage.com"
+}
+
+output "s3_region" {
+  description = "Hetzner Object Storage region"
+  value       = var.hetzner_region
 }
 
 output "s3_bucket" {

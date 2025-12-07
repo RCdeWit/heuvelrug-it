@@ -38,3 +38,9 @@ variable "hetzner_s3_secret_key" {
   description = "Hetzner Object Storage secret key"
   sensitive   = true
 }
+
+variable "hetzner_region" {
+  type        = string
+  description = "Hetzner region for Object Storage and other resources"
+  default     = "nbg1"
+}

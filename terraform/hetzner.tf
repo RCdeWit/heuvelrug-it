@@ -61,8 +61,9 @@ resource "hcloud_zone_rrset" "letsencrypt_caa" {
 }
 
 resource "minio_s3_bucket" "nextcloud_backups" {
-  bucket = "nextcloud-backups"
-  acl    = "private"
+  bucket        = "nextcloud-backups"
+  bucket_region = var.hetzner_region
+  acl           = "private"
 
   lifecycle {
     prevent_destroy = true
