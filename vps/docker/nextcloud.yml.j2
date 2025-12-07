@@ -23,8 +23,8 @@ services:
     volumes:
       - nextcloud_data:/var/www/html
       - {{ mount_point }}/ncdata:/var/www/html/data
-      - ../nextcloud/nextcloud.config.php:/var/www/html/config/nextcloud.config.php:ro
-      - ../nextcloud/nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
+      - ./nextcloud/nextcloud.config.php:/var/www/html/config/nextcloud.config.php:ro
+      - ./nextcloud/nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
     entrypoint: ["/custom-entrypoint.sh"]
     environment:
       POSTGRES_HOST: nextcloud-db
@@ -43,6 +43,33 @@ services:
     ports:
       - 8080:80
 
+  backup:
+    image: restic/restic:latest
+    restart: always
+    depends_on:
+      - nextcloud
+      - nextcloud-db
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - {{ mount_point }}/nextcloud_db:/mnt/data/nextcloud_db:ro
+      - {{ mount_point }}/nextcloud_data:/mnt/data/nextcloud_data:ro
+      - {{ mount_point }}/ncdata:/mnt/data/ncdata:ro
+      - ./nextcloud/backup.sh:/backup.sh:ro
+      - backup_temp:/backup
+    environment:
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache docker-cli
+        echo "0 2 * * * /bin/sh /backup.sh >> /var/log/backup.log 2>&1" | crontab -
+        crond -f -l 2
+
 volumes:
   nextcloud_db:
     driver: local
@@ -56,3 +83,5 @@ volumes:
       type: none
       o: bind
       device: {{ mount_point }}/nextcloud_data
+  backup_temp:
+    driver: local

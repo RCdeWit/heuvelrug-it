@@ -13,6 +13,12 @@ POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
 NEXTCLOUD_ADMIN_USER = os.environ.get("NEXTCLOUD_ADMIN_USER", "admin")
 NEXTCLOUD_ADMIN_PASSWORD = os.environ["NEXTCLOUD_ADMIN_PASSWORD"]
 REDIS_PASSWORD = os.environ["REDIS_PASSWORD"]
+RESTIC_PASSWORD = os.environ["RESTIC_PASSWORD"]
+AWS_ACCESS_KEY_ID = os.environ["TF_VAR_hetzner_s3_access_key"]
+AWS_SECRET_ACCESS_KEY = os.environ["TF_VAR_hetzner_s3_secret_key"]
+AWS_S3_ENDPOINT = "https://fsn1.your-objectstorage.com"
+AWS_S3_BUCKET = "nextcloud-backups"
+BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
 
 MOUNT_POINT = host.get_fact(
     Command,
@@ -83,18 +89,32 @@ files.template(
     _sudo=True,
 )
 
+server.shell(
+    name="Create Nextcloud config directory",
+    commands=["mkdir -p /opt/nextcloud/nextcloud"],
+    _sudo=True,
+)
+
 files.put(
-    name="Upload Nextcloud proxy configuration",
-    src=f"{PROJECT_ROOT}/vps/docker/proxy.config.php",
-    dest="/opt/nextcloud/proxy.config.php",
+    name="Upload Nextcloud configuration",
+    src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud.config.php",
+    dest="/opt/nextcloud/nextcloud/nextcloud.config.php",
     mode="0644",
     _sudo=True,
 )
 
 files.put(
     name="Upload Nextcloud custom entrypoint script",
-    src=f"{PROJECT_ROOT}/vps/docker/nextcloud-entrypoint.sh",
-    dest="/opt/nextcloud/nextcloud-entrypoint.sh",
+    src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud-entrypoint.sh",
+    dest="/opt/nextcloud/nextcloud/nextcloud-entrypoint.sh",
+    mode="0755",
+    _sudo=True,
+)
+
+files.put(
+    name="Upload Nextcloud backup script",
+    src=f"{PROJECT_ROOT}/vps/nextcloud/backup.sh",
+    dest="/opt/nextcloud/nextcloud/backup.sh",
     mode="0755",
     _sudo=True,
 )
@@ -106,6 +126,12 @@ files.template(
         f"NEXTCLOUD_ADMIN_USER={NEXTCLOUD_ADMIN_USER}\n"
         f"NEXTCLOUD_ADMIN_PASSWORD={NEXTCLOUD_ADMIN_PASSWORD}\n"
         f"REDIS_PASSWORD={REDIS_PASSWORD}\n"
+        f"RESTIC_PASSWORD={RESTIC_PASSWORD}\n"
+        f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}\n"
+        f"AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}\n"
+        f"AWS_S3_ENDPOINT={AWS_S3_ENDPOINT}\n"
+        f"AWS_S3_BUCKET={AWS_S3_BUCKET}\n"
+        f"BACKUP_RETENTION_DAYS={BACKUP_RETENTION_DAYS}\n"
     ),
     dest="/opt/nextcloud/.env",
     mode="0600",

@@ -26,3 +26,15 @@ variable "ssh_key_deployment_public" {
   type        = string
   description = "Public key for deployments on Hetzner"
 }
+
+variable "hetzner_s3_access_key" {
+  type        = string
+  description = "Hetzner Object Storage access key"
+  sensitive   = true
+}
+
+variable "hetzner_s3_secret_key" {
+  type        = string
+  description = "Hetzner Object Storage secret key"
+  sensitive   = true
+}

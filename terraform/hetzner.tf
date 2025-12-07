@@ -59,3 +59,20 @@ resource "hcloud_zone_rrset" "letsencrypt_caa" {
     { value = "0 issue \"letsencrypt.org\"" }
   ]
 }
+
+resource "minio_s3_bucket" "nextcloud_backups" {
+  bucket = "nextcloud-backups"
+  acl    = "private"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "minio_s3_bucket_versioning" "nextcloud_backups" {
+  bucket = minio_s3_bucket.nextcloud_backups.bucket
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
