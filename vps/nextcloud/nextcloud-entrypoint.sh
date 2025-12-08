@@ -30,6 +30,20 @@ service cron start || true
 echo "Disabling AppAPI..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:disable app_api' 2>/dev/null || true
 
+# Install Nextcloud Office (uses external Collabora container)
+echo "Installing Nextcloud Office..."
+# Ensure built-in CODE server is NOT installed
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:disable richdocumentscode' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:remove richdocumentscode' 2>/dev/null || true
+# Install and enable Nextcloud Office
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install richdocuments' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable richdocuments' || true
+# Configure to use external Collabora server
+echo "Configuring external Collabora server..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments wopi_url --value=https://office.dobbertjeduik.nl' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments public_wopi_url --value=https://office.dobbertjeduik.nl' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments disable_certificate_verification --value=""' || true
+
 # Run mimetype migration if not already done
 MIGRATION_FLAG="/var/www/html/data/.mimetype-migration-done"
 if [ ! -f "$MIGRATION_FLAG" ]; then

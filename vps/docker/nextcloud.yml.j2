@@ -42,6 +42,22 @@ services:
     ports:
       - 8080:80
 
+  collabora:
+    image: collabora/code:latest
+    restart: always
+    environment:
+      - aliasgroup1=https://drive.dobbertjeduik.nl:443
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true
+      - dictionaries=en_US nl_NL
+    ports:
+      - 9980:9980
+    cap_add:
+      - MKNOD
+      - SYS_CHROOT
+    security_opt:
+      - apparmor:unconfined
+      - seccomp:unconfined
+
   backup:
     image: restic/restic:latest
     restart: always

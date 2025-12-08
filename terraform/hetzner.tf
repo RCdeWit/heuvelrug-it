@@ -54,6 +54,16 @@ resource "hcloud_zone_rrset" "healthcheck" {
   ]
 }
 
+resource "hcloud_zone_rrset" "office" {
+  zone    = hcloud_zone.domain.name
+  name    = "office"
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.drive_instance.ipv4_address }
+  ]
+}
+
 resource "hcloud_zone_rrset" "letsencrypt_caa" {
   zone    = hcloud_zone.domain.name
   name    = "@"

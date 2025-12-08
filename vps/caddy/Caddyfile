@@ -11,6 +11,29 @@ drive.dobbertjeduik.nl {
     encode gzip zstd
 }
 
+office.dobbertjeduik.nl {
+    tls {
+        dns hetzner {env.HETZNER_API_TOKEN}
+        resolvers 8.8.8.8:53 1.1.1.1:53
+    }
+
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Collabora Online requires these headers
+    header X-Forwarded-Proto https
+    header X-Forwarded-Host {host}
+
+    reverse_proxy http://localhost:9980 {
+        transport http {
+            # Collabora needs long timeouts
+            read_timeout 3600s
+            write_timeout 3600s
+        }
+    }
+
+    encode gzip zstd
+}
+
 healthcheck.dobbertjeduik.nl {
     respond "OK" 200
 }
