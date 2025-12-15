@@ -21,6 +21,21 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set default_pho
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set backgroundjobs_mode --value="cron"' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set skeletondirectory --value=""' || true
 
+# Configure Redis caching
+echo "Configuring Redis caching..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set memcache.local --value="\\OC\\Memcache\\APCu"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set memcache.distributed --value="\\OC\\Memcache\\Redis"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set memcache.locking --value="\\OC\\Memcache\\Redis"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set redis host --value="redis"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set redis port --value=6379 --type=integer' || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set redis password --value=\"${REDIS_HOST_PASSWORD}\"" || true
+
+# Additional performance settings
+echo "Applying performance settings..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set filelocking.enabled --value=true --type=boolean' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set log_query --value=false --type=boolean' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set loglevel --value=2 --type=integer' || true
+
 # Set up cron job for background tasks
 echo "Setting up cron for background jobs..."
 echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
