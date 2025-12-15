@@ -41,4 +41,17 @@ $CONFIG = array (
   'dbdriveroptions' => array(
     'PDO::ATTR_TIMEOUT' => 30,
   ),
+
+  // SMTP email configuration (Brevo)
+  'mail_smtpmode' => 'smtp',
+  'mail_sendmailmode' => 'smtp',
+  'mail_from_address' => getenv('MAIL_FROM_ADDRESS') ?: 'noreply',
+  'mail_domain' => getenv('MAIL_DOMAIN'),
+  'mail_smtphost' => getenv('SMTP_HOST') ?: 'smtp-relay.brevo.com',
+  'mail_smtpport' => getenv('SMTP_PORT') ?: 587,
+  'mail_smtpsecure' => getenv('SMTP_SECURE') ?: 'tls',
+  'mail_smtpauth' => 1,
+  'mail_smtpauthtype' => getenv('SMTP_AUTH_TYPE') ?: 'LOGIN',
+  'mail_smtpname' => getenv('SMTP_USERNAME'),
+  'mail_smtppassword' => getenv('SMTP_PASSWORD'),
 );

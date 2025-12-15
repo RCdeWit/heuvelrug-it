@@ -36,6 +36,20 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set filelocking
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set log_query --value=false --type=boolean' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set loglevel --value=2 --type=integer' || true
 
+# Configure SMTP email settings
+echo "Configuring SMTP email settings..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set mail_smtpmode --value="smtp"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set mail_sendmailmode --value="smtp"' || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_from_address --value=\"${MAIL_FROM_ADDRESS:-noreply}\"" || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_domain --value=\"${MAIL_DOMAIN}\"" || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_smtphost --value=\"${SMTP_HOST:-smtp-relay.brevo.com}\"" || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_smtpport --value=${SMTP_PORT:-587} --type=integer" || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_smtpsecure --value=\"${SMTP_SECURE:-tls}\"" || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set mail_smtpauth --value=1 --type=integer' || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_smtpauthtype --value=\"${SMTP_AUTH_TYPE:-LOGIN}\"" || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_smtpname --value=\"${SMTP_USERNAME}\"" || true
+su -s /bin/bash www-data -c "php /var/www/html/occ config:system:set mail_smtppassword --value=\"${SMTP_PASSWORD}\"" || true
+
 # Set up cron job for background tasks
 echo "Setting up cron for background jobs..."
 # Install cron if not present

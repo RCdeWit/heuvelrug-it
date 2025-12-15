@@ -52,6 +52,15 @@ services:
       OVERWRITEPROTOCOL: https
       OVERWRITEHOST: drive.dobbertjeduik.nl
       OVERWRITECLIURL: https://drive.dobbertjeduik.nl
+      # SMTP Configuration
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_AUTH_TYPE: ${SMTP_AUTH_TYPE}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_DOMAIN: ${MAIL_DOMAIN}
     ports:
       - 8080:80
 

@@ -105,6 +105,7 @@ Edit `.env` and fill in all required credentials:
 - S3 access keys for Object Storage (used for both Terraform state and Restic backups)
 - SSH public key
 - Generate passwords for PostgreSQL, Redis, Nextcloud, and Restic
+- SMTP credentials for email notifications (see Email Configuration below)
 
 **Note**: The S3 bucket name for backups is automatically retrieved from Terraform outputs during deployment. The PyInfra script will construct the S3 endpoint from your configured region (`TF_VAR_hetzner_region`).
 
@@ -144,7 +145,67 @@ terraform apply
 # Note the VPS IP address from outputs
 ```
 
-### 5. Configure VPS
+### 5. Configure Email (Brevo)
+
+Nextcloud requires SMTP configuration to send email notifications (user creation, password resets, etc.).
+
+**Recommended**: Use [Brevo](https://www.brevo.com/) (EU-based, free tier: 300 emails/day)
+
+1. Sign up at [https://www.brevo.com/](https://www.brevo.com/)
+2. Navigate to: **SMTP & API** → **SMTP**
+3. Click **Create a new SMTP key**
+4. Copy the generated SMTP credentials
+5. Add to your `.env` file:
+
+```bash
+export SMTP_HOST=smtp-relay.brevo.com
+export SMTP_PORT=587
+export SMTP_SECURE=tls
+export SMTP_AUTH_TYPE=LOGIN
+export SMTP_USERNAME=your-brevo-email@example.com
+export SMTP_PASSWORD=your-generated-smtp-key
+export MAIL_FROM_ADDRESS=noreply
+export MAIL_DOMAIN=dobbertjeduik.nl
+```
+
+**Note**: The SMTP password is the API key from Brevo, not your account password.
+
+**Alternative providers**:
+- Mailgun EU (good Terraform support)
+- Amazon SES (cheapest, requires AWS account)
+- Postmark (excellent deliverability)
+
+See `.env.example` for detailed configuration instructions.
+
+#### Optional: Verify Domain for Better Deliverability
+
+For production use, verify your domain with Brevo to improve email deliverability:
+
+1. In Brevo, go to **Settings** → **Senders & IP** → **Add Domain**
+2. Enter `dobbertjeduik.nl` and follow the verification steps
+3. Brevo will provide DNS records including:
+   - A verification code (code-verification TXT record)
+   - 2 DKIM CNAME records (mail._domainkey, mail2._domainkey)
+4. Add these to your `.env` file:
+
+```bash
+export TF_VAR_brevo_verification_code="your-verification-code-here"
+export TF_VAR_brevo_dkim_key1="b1.your-domain-com.dkim.brevo.com"
+export TF_VAR_brevo_dkim_key2="b2.your-domain-com.dkim.brevo.com"
+```
+
+5. Run Terraform to add the DNS records:
+
+```bash
+cd terraform
+terraform apply
+```
+
+The SPF and DMARC records are automatically configured. Once DNS propagates (5-15 minutes), verify the domain in Brevo.
+
+**Note**: Emails will work without domain verification, but may have lower deliverability and show "sent via brevo.com" warnings.
+
+### 6. Configure VPS
 
 ```bash
 # Return to project root
@@ -160,7 +221,7 @@ uv run pyinfra/configure_vps.py --fresh
 uv run pyinfra/configure_vps.py
 ```
 
-### 6. Verify Deployment
+### 7. Verify Deployment
 
 1. Visit `https://drive.dobbertjeduik.nl`
 2. Log in with Nextcloud admin credentials from `.env`
@@ -540,6 +601,26 @@ docker exec nextcloud-nextcloud-1 \
 # View PHP logs
 docker logs nextcloud-nextcloud-1 | grep -i error
 ```
+
+### Email Not Sending
+
+```bash
+# Check SMTP configuration
+docker exec nextcloud-nextcloud-1 \
+  su -s /bin/bash www-data -c 'php /var/www/html/occ config:list system' | grep mail
+
+# Test email sending (sends test email to admin)
+docker exec nextcloud-nextcloud-1 \
+  su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set mail_domain --value="your-domain.com"'
+
+# View email-related errors in logs
+docker exec nextcloud-nextcloud-1 cat /var/www/html/data/nextcloud.log | grep -i "mail\|smtp"
+```
+
+**Common issues**:
+- Incorrect SMTP credentials → Check Brevo dashboard for correct API key
+- Firewall blocking port 587 → Test with `telnet smtp-relay.brevo.com 587`
+- Wrong sender domain → Ensure `MAIL_DOMAIN` matches your domain
 
 ### DNS Issues
 

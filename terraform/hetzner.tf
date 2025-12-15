@@ -33,7 +33,6 @@ resource "hcloud_zone" "domain" {
   ttl  = 3600
 }
 
-
 resource "hcloud_zone_rrset" "drive" {
   zone    = hcloud_zone.domain.name
   name    = "drive"
@@ -71,6 +70,65 @@ resource "hcloud_zone_rrset" "letsencrypt_caa" {
   ttl     = 3600
   records = [
     { value = "0 issue \"letsencrypt.org\"" }
+  ]
+}
+
+# Brevo email authentication records
+# These records are required for Brevo to send emails on behalf of your domain
+# Get the DKIM keys from: Brevo Dashboard -> Settings -> Senders & IP -> Add Domain
+
+# Root domain TXT records - includes SPF and optional Brevo verification code
+# Note: Records are sorted alphabetically to match Hetzner API ordering
+resource "hcloud_zone_rrset" "brevo_txt" {
+  zone    = hcloud_zone.domain.name
+  name    = "@"
+  type    = "TXT"
+  ttl     = 3600
+  records = concat(
+    var.brevo_verification_code != "" ? [
+      { value = "\"${var.brevo_verification_code}\"" }
+    ] : [],
+    [
+      { value = "\"v=spf1 include:spf.brevo.com ~all\"" }
+    ]
+  )
+}
+
+# DKIM records - cryptographic signatures for email authentication
+# Brevo provides CNAME records that point to their DKIM infrastructure
+# Only create these if the DKIM keys are provided (not empty)
+
+resource "hcloud_zone_rrset" "brevo_dkim1" {
+  count   = var.brevo_dkim_key1 != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "brevo1._domainkey"
+  type    = "CNAME"
+  ttl     = 3600
+  records = [
+    { value = var.brevo_dkim_key1 }
+  ]
+}
+
+resource "hcloud_zone_rrset" "brevo_dkim2" {
+  count   = var.brevo_dkim_key2 != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "brevo2._domainkey"
+  type    = "CNAME"
+  ttl     = 3600
+  records = [
+    { value = var.brevo_dkim_key2 }
+  ]
+}
+
+# DMARC record - policy for handling emails that fail authentication
+# This tells receiving servers what to do with emails that fail SPF/DKIM checks
+resource "hcloud_zone_rrset" "dmarc" {
+  zone    = hcloud_zone.domain.name
+  name    = "_dmarc"
+  type    = "TXT"
+  ttl     = 3600
+  records = [
+    { value = "\"v=DMARC1; p=none; rua=mailto:dmarc@${var.domain}\"" }
   ]
 }
 

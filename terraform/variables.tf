@@ -50,3 +50,28 @@ variable "hetzner_region" {
   description = "Hetzner region for Object Storage and other resources"
   default     = "nbg1"
 }
+
+# Brevo (email provider) DNS verification records
+# These are provided by Brevo when you add your domain for verification
+# Get these from: Brevo Dashboard -> Settings -> Senders & IP -> Add Domain
+
+variable "brevo_verification_code" {
+  type        = string
+  description = "Brevo domain verification code (from code-verification TXT record)"
+  default     = ""
+  sensitive   = false
+}
+
+variable "brevo_dkim_key1" {
+  type        = string
+  description = "Brevo DKIM CNAME target 1 (from mail._domainkey CNAME record)"
+  default     = ""
+  sensitive   = false
+}
+
+variable "brevo_dkim_key2" {
+  type        = string
+  description = "Brevo DKIM CNAME target 2 (from mail2._domainkey CNAME record)"
+  default     = ""
+  sensitive   = false
+}
