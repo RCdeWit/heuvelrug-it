@@ -161,14 +161,16 @@ Nextcloud requires SMTP configuration to send email notifications (user creation
 export SMTP_HOST=smtp-relay.brevo.com
 export SMTP_PORT=587
 export SMTP_SECURE=tls
-export SMTP_AUTH_TYPE=LOGIN
-export SMTP_USERNAME=your-brevo-email@example.com
+export SMTP_AUTHTYPE=LOGIN
+export SMTP_NAME=your-brevo-email@example.com
 export SMTP_PASSWORD=your-generated-smtp-key
 export MAIL_FROM_ADDRESS=noreply
-export MAIL_DOMAIN=dobbertjeduik.nl
 ```
 
-**Note**: The SMTP password is the API key from Brevo, not your account password.
+**Notes**:
+- Use `SMTP_NAME` for the username (not `SMTP_USERNAME`) - this is the official Nextcloud Docker variable name
+- The SMTP password is the API key from Brevo, not your account password
+- The email domain is automatically taken from `TF_VAR_domain` (e.g., noreply@dobbertjeduik.nl)
 
 **Alternative providers**:
 - Mailgun EU (good Terraform support)

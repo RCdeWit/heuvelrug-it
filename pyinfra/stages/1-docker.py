@@ -23,6 +23,17 @@ AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.your-objectstorage.com"
 AWS_S3_BUCKET = get_terraform_output("s3_bucket")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
 
+# SMTP configuration (using official Nextcloud Docker env var names)
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp-relay.brevo.com")
+SMTP_PORT = os.environ.get("SMTP_PORT", "587")
+SMTP_SECURE = os.environ.get("SMTP_SECURE", "tls")
+SMTP_AUTHTYPE = os.environ.get("SMTP_AUTHTYPE", "LOGIN")
+SMTP_NAME = os.environ.get("SMTP_NAME", "")  # Username for SMTP auth
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+MAIL_FROM_ADDRESS = os.environ.get("MAIL_FROM_ADDRESS", "noreply")
+# Reuse the domain from Terraform variables (no need for separate MAIL_DOMAIN)
+DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
+
 MOUNT_POINT = host.get_fact(
     Command,
     "findmnt -n -o TARGET /dev/disk/by-id/scsi-0HC_Volume_* | grep -v '/var/lib/docker'"
@@ -127,6 +138,14 @@ files.template(
         f"AWS_S3_ENDPOINT={AWS_S3_ENDPOINT}\n"
         f"AWS_S3_BUCKET={AWS_S3_BUCKET}\n"
         f"BACKUP_RETENTION_DAYS={BACKUP_RETENTION_DAYS}\n"
+        f"SMTP_HOST={SMTP_HOST}\n"
+        f"SMTP_PORT={SMTP_PORT}\n"
+        f"SMTP_SECURE={SMTP_SECURE}\n"
+        f"SMTP_AUTHTYPE={SMTP_AUTHTYPE}\n"
+        f"SMTP_NAME={SMTP_NAME}\n"
+        f"SMTP_PASSWORD={SMTP_PASSWORD}\n"
+        f"MAIL_FROM_ADDRESS={MAIL_FROM_ADDRESS}\n"
+        f"MAIL_DOMAIN={DOMAIN}\n"
     ),
     dest="/opt/nextcloud/.env",
     mode="0600",
