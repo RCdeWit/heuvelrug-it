@@ -38,8 +38,13 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set loglevel --
 
 # Set up cron job for background tasks
 echo "Setting up cron for background jobs..."
+# Install cron if not present
+apt-get update -qq && apt-get install -y -qq cron > /dev/null 2>&1 || true
+# Set up crontab for www-data user
 echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
-service cron start || true
+# Start cron daemon in background (must run continuously)
+cron
+echo "Cron daemon started for background jobs"
 
 # Disable AppAPI
 echo "Disabling AppAPI..."
