@@ -168,7 +168,7 @@ export MAIL_FROM_ADDRESS=noreply
 **Notes**:
 - Use `SMTP_NAME` for the username (not `SMTP_USERNAME`) - this is the official Nextcloud Docker variable name
 - The SMTP password is the API key from Brevo, not your account password
-- The email domain is automatically taken from `TF_VAR_domain` (e.g., noreply@dobbertjeduik.nl)
+- The email domain is automatically taken from `TF_VAR_domain` (e.g., `noreply@dobbertjeduik.nl`)
 
 **Alternative providers**:
 - Mailgun EU (good Terraform support)
@@ -275,10 +275,10 @@ The easiest way to restore backups is using the automated restore utility. Run i
 
 ```bash
 # Run the restore utility (from your local machine)
-./restore.sh <vps-hostname-or-ip>
+./restore.sh <vps-ip-address>
 
-# Example
-./restore.sh drive.dobbertjeduik.nl
+# Example (use IP address, not hostname)
+./restore.sh 123.45.67.89
 ```
 
 The utility provides an interactive menu with the following options:

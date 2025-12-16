@@ -138,40 +138,48 @@ list_snapshots() {
 
 select_snapshot() {
     local snapshot_id
-    echo ""
-    read -p "Enter snapshot ID to restore: " snapshot_id
+    echo "" >&2
+    echo "==========================================" >&2
+    log_info "Enter the snapshot ID from the list above" >&2
+    log_info "You can use the full ID or just the first 8 characters" >&2
+    echo "==========================================" >&2
+    echo "" >&2
+    read -p "Snapshot ID: " snapshot_id
 
     if [[ -z "$snapshot_id" ]]; then
-        log_error "No snapshot ID provided"
+        log_error "No snapshot ID provided" >&2
         exit 1
     fi
 
     # Verify snapshot exists
+    log_info "Verifying snapshot ID..." >&2
     if ! ssh_exec "export RESTIC_PASSWORD='$RESTIC_PASSWORD' AWS_ACCESS_KEY_ID='$AWS_ACCESS_KEY_ID' AWS_SECRET_ACCESS_KEY='$AWS_SECRET_ACCESS_KEY' RESTIC_REPOSITORY='$RESTIC_REPOSITORY' && restic snapshots $snapshot_id" &> /dev/null; then
-        log_error "Invalid snapshot ID: $snapshot_id"
+        log_error "Invalid snapshot ID: $snapshot_id" >&2
+        log_error "Please check the ID from the list above and try again" >&2
         exit 1
     fi
 
+    log_success "Snapshot ID verified: $snapshot_id" >&2
     echo "$snapshot_id"
 }
 
 show_restore_menu() {
-    echo ""
-    echo "=========================================="
-    echo "  Nextcloud Backup Restoration Utility"
-    echo "=========================================="
-    echo ""
-    echo "VPS: ${VPS_USER}@${VPS_HOST}"
-    echo ""
-    echo "Select restoration type:"
-    echo ""
-    echo "  1) Full restore (complete disaster recovery)"
-    echo "  2) Restore to temporary location on VPS (inspect only)"
-    echo "  3) Restore specific files/directories"
-    echo "  4) Database only"
-    echo "  5) Exit"
-    echo ""
-    read -p "Enter choice [1-5]: " choice
+    echo "" >&2
+    echo "==========================================" >&2
+    echo "  Nextcloud Backup Restoration Utility" >&2
+    echo "==========================================" >&2
+    echo "" >&2
+    echo "VPS: ${VPS_USER}@${VPS_HOST}" >&2
+    echo "" >&2
+    echo "What type of restore would you like to perform?" >&2
+    echo "" >&2
+    echo "  1) Full restore (complete disaster recovery)" >&2
+    echo "  2) Restore to temporary location on VPS (inspect only)" >&2
+    echo "  3) Restore specific files/directories" >&2
+    echo "  4) Database only" >&2
+    echo "  5) Exit" >&2
+    echo "" >&2
+    read -p "Enter your choice [1-5]: " choice
     echo "$choice"
 }
 
@@ -254,25 +262,53 @@ restore_full() {
     # Stop all services
     stop_services
 
-    # Clear existing data
-    log_info "Clearing existing data directories..."
-    ssh_exec_sudo "rm -rf ${mount_point}/nextcloud_db/*"
+    # Clear existing data (user files and Nextcloud app data only, NOT database)
+    log_info "Clearing user data directories..."
     ssh_exec_sudo "rm -rf ${mount_point}/nextcloud_data/*"
     ssh_exec_sudo "rm -rf ${mount_point}/ncdata/*"
-    log_success "Data directories cleared"
+    log_success "User data directories cleared"
 
-    # Restore from snapshot
-    log_info "Restoring from snapshot $snapshot_id..."
+    # Restore user files and Nextcloud data from snapshot
+    log_info "Restoring user files and Nextcloud data from snapshot $snapshot_id..."
     log_info "This may take several minutes depending on backup size..."
-    ssh_exec "export RESTIC_PASSWORD='$RESTIC_PASSWORD' AWS_ACCESS_KEY_ID='$AWS_ACCESS_KEY_ID' AWS_SECRET_ACCESS_KEY='$AWS_SECRET_ACCESS_KEY' RESTIC_REPOSITORY='$RESTIC_REPOSITORY' && sudo -E restic restore $snapshot_id --target $mount_point"
-    log_success "Restore completed"
+    ssh_exec "export RESTIC_PASSWORD='$RESTIC_PASSWORD' AWS_ACCESS_KEY_ID='$AWS_ACCESS_KEY_ID' AWS_SECRET_ACCESS_KEY='$AWS_SECRET_ACCESS_KEY' RESTIC_REPOSITORY='$RESTIC_REPOSITORY' && sudo -E restic restore $snapshot_id --target $mount_point --include /mnt/data/nextcloud_data --include /mnt/data/ncdata --include /backup"
+    log_success "Files restored"
 
-    # Start services
+    # Start services (needed for database container)
     start_services
 
-    # Wait for services to be ready
-    log_info "Waiting for services to start..."
-    sleep 10
+    # Wait for database to be ready
+    log_info "Waiting for database to be ready..."
+    sleep 15
+
+    # Restore database from SQL dump
+    log_info "Restoring database from SQL dump..."
+    # Drop and recreate database using echo to pipe SQL commands
+    ssh_exec_sudo "echo 'DROP DATABASE IF EXISTS nextcloud; CREATE DATABASE nextcloud;' | docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d postgres"
+    # Import SQL dump
+    ssh_exec_sudo "docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud < ${mount_point}/backup/nextcloud_db.sql"
+
+    # Get database user from config and grant permissions
+    log_info "Fixing database permissions..."
+    local db_user
+    db_user=$(ssh_exec_sudo "docker exec nextcloud-nextcloud-1 grep \"'dbuser'\" /var/www/html/config/config.php | cut -d\\\" -f2")
+    if [[ -n "$db_user" ]]; then
+        ssh_exec_sudo "docker exec nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $db_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $db_user;'"
+    fi
+
+    # Ensure installed flag is set in config.php
+    log_info "Setting installed flag in config.php..."
+    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 bash -c 'cd /var/www/html/config && if ! grep -q \"installed\" config.php; then cp config.php config.php.bak && awk \"/);/{print \\\"  \\047installed\\047 => true,\\\"; print; next} 1\" config.php.bak > config.php && chown www-data:www-data config.php; fi'"
+
+    log_success "Database restored"
+
+    # Clean up SQL dump
+    ssh_exec_sudo "rm -rf ${mount_point}/backup"
+
+    # Restart Nextcloud container to apply all IaC configurations from entrypoint
+    log_info "Restarting Nextcloud container to apply IaC configurations..."
+    ssh_exec_sudo "docker restart nextcloud-nextcloud-1"
+    sleep 20  # Wait for container to fully restart and entrypoint to run
 
     # Run maintenance
     run_maintenance
@@ -371,9 +407,26 @@ restore_database() {
         exit 1
     fi
 
-    # Restore database
-    log_info "Restoring database..."
+    # Restore database from SQL dump
+    log_info "Restoring database from SQL dump..."
+    # Drop and recreate database using echo to pipe SQL commands
+    ssh_exec_sudo "echo 'DROP DATABASE IF EXISTS nextcloud; CREATE DATABASE nextcloud;' | docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d postgres"
+    # Import SQL dump
     ssh_exec_sudo "docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud < ${RESTORE_TEMP}/backup/nextcloud_db.sql"
+
+    # Get database user from config and grant permissions
+    log_info "Fixing database permissions..."
+    local db_user
+    db_user=$(ssh_exec_sudo "docker exec nextcloud-nextcloud-1 grep \"'dbuser'\" /var/www/html/config/config.php | cut -d\\\" -f2")
+    if [[ -n "$db_user" ]]; then
+        ssh_exec_sudo "docker exec nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $db_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $db_user;'"
+    fi
+
+    # Ensure installed flag is set in config.php
+    log_info "Setting installed flag in config.php..."
+    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 bash -c 'cd /var/www/html/config && if ! grep -q \"installed\" config.php; then cp config.php config.php.bak && awk \"/);/{print \\\"  \\047installed\\047 => true,\\\"; print; next} 1\" config.php.bak > config.php && chown www-data:www-data config.php; fi'"
+
+    log_success "Database restored"
 
     # Cleanup
     ssh_exec "rm -rf $RESTORE_TEMP"
@@ -388,12 +441,12 @@ restore_database() {
 }
 
 show_usage() {
-    echo "Usage: $0 <vps-hostname-or-ip>"
+    echo "Usage: $0 <vps-ip-address>"
     echo ""
     echo "Example:"
-    echo "  $0 my-vps.example.com"
-    echo "  $0 192.168.1.100"
+    echo "  $0 123.45.67.89"
     echo ""
+    echo "Note: Use the IP address of your VPS, not the hostname."
     echo "The script will connect as user 'deploy' by default."
     echo "Make sure SSH key authentication is configured."
     exit 1
