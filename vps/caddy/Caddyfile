@@ -1,4 +1,4 @@
-drive.dobbertjeduik.nl {
+drive.{{ domain }} {
     tls {
         dns hetzner {env.HETZNER_API_TOKEN}
         resolvers 8.8.8.8:53 1.1.1.1:53
@@ -11,7 +11,7 @@ drive.dobbertjeduik.nl {
     encode gzip zstd
 }
 
-office.dobbertjeduik.nl {
+office.{{ domain }} {
     tls {
         dns hetzner {env.HETZNER_API_TOKEN}
         resolvers 8.8.8.8:53 1.1.1.1:53
@@ -34,6 +34,6 @@ office.dobbertjeduik.nl {
     encode gzip zstd
 }
 
-healthcheck.dobbertjeduik.nl {
+healthcheck.{{ domain }} {
     respond "OK" 200
 }

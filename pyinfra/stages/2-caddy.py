@@ -8,6 +8,7 @@ from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
 HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
+DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
@@ -74,13 +75,14 @@ files.put(
     _sudo=True,
 )
 
-files.put(
+files.template(
     name="Copy Caddy configuration to VPS",
     _sudo=True,
     src=f"{PROJECT_ROOT}/vps/caddy/Caddyfile",
     dest="/etc/caddy/Caddyfile",
     assume_exists=True,
     user="deploy",
+    domain=DOMAIN,
 )
 
 server.shell(

@@ -48,10 +48,10 @@ services:
       REDIS_HOST: redis
       REDIS_HOST_PORT: 6379
       REDIS_HOST_PASSWORD: ${REDIS_PASSWORD}
-      NEXTCLOUD_TRUSTED_DOMAINS: drive.dobbertjeduik.nl
+      NEXTCLOUD_TRUSTED_DOMAINS: drive.{{ domain }}
       OVERWRITEPROTOCOL: https
-      OVERWRITEHOST: drive.dobbertjeduik.nl
-      OVERWRITECLIURL: https://drive.dobbertjeduik.nl
+      OVERWRITEHOST: drive.{{ domain }}
+      OVERWRITECLIURL: https://drive.{{ domain }}
       # SMTP Configuration (using official Nextcloud Docker env vars)
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
@@ -68,7 +68,7 @@ services:
     image: collabora/code:latest
     restart: always
     environment:
-      - aliasgroup1=https://drive.dobbertjeduik.nl:443
+      - aliasgroup1=https://drive.{{ domain }}:443
       - extra_params=--o:ssl.enable=false --o:ssl.termination=true
       - dictionaries=en_US nl_NL
     ports:
@@ -79,6 +79,26 @@ services:
     security_opt:
       - apparmor:unconfined
       - seccomp:unconfined
+
+  nextcloud-cron:
+    image: nextcloud:latest
+    restart: always
+    depends_on:
+      - nextcloud
+      - nextcloud-db
+      - redis
+    volumes:
+      - nextcloud_data:/var/www/html
+      - {{ mount_point }}/ncdata:/var/www/html/data
+    environment:
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_HOST_PORT: 6379
+      REDIS_HOST_PASSWORD: ${REDIS_PASSWORD}
+    entrypoint: /cron.sh
 
   backup:
     image: restic/restic:latest

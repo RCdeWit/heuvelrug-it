@@ -100,6 +100,7 @@ files.template(
     dest="/opt/nextcloud/docker-compose.yml",
     mode="0644",
     mount_point=MOUNT_POINT,
+    domain=DOMAIN,
     _sudo=True,
 )
 
@@ -109,11 +110,12 @@ server.shell(
     _sudo=True,
 )
 
-files.put(
+files.template(
     name="Upload Nextcloud custom entrypoint script",
     src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud-entrypoint.sh",
     dest="/opt/nextcloud/nextcloud/nextcloud-entrypoint.sh",
     mode="0755",
+    domain=DOMAIN,
     _sudo=True,
 )
 
