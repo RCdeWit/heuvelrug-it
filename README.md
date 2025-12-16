@@ -1,7 +1,5 @@
 # GL/PvdA Heuvelrug IT
 
-[![Deploy Infra](https://github.com/RCdeWit/heuvelrug-it/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/RCdeWit/heuvelrug-it/actions/workflows/deploy.yml)
-
 Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud instance. Uses Terraform for provisioning cloud resources on Hetzner and PyInfra for configuration management.
 
 ## Architecture
@@ -271,7 +269,42 @@ Weekly integrity checks run automatically every Sunday.
 
 ### Restoring from Backup
 
-#### 1. List Available Snapshots
+#### Quick Start: Automated Restore Utility
+
+The easiest way to restore backups is using the automated restore utility. Run it locally and it will connect to your VPS via SSH:
+
+```bash
+# Run the restore utility (from your local machine)
+./restore.sh <vps-hostname-or-ip>
+
+# Example
+./restore.sh drive.dobbertjeduik.nl
+```
+
+The utility provides an interactive menu with the following options:
+
+1. **Full restore** - Complete disaster recovery (destructive)
+2. **Restore to temporary location** - Inspect backup contents safely
+3. **Restore specific files/directories** - Selective restoration
+4. **Database only** - Restore PostgreSQL database only
+5. **Exit**
+
+**Features:**
+- Runs locally - no need to copy files to VPS
+- Automatically loads credentials from the VPS environment file via SSH
+- Lists available snapshots with timestamps
+- Manages maintenance mode and service orchestration remotely
+- Validates destructive operations with confirmation prompts
+- Provides clear progress indicators and colored output
+- Handles all the complexity of the manual restore process
+
+**Requirements:**
+- SSH key authentication configured for the `deploy` user
+- Script runs from your local machine and connects to VPS
+
+#### Manual Restore (Advanced)
+
+##### 1. List Available Snapshots
 
 ```bash
 # SSH into VPS or backup container
@@ -284,7 +317,7 @@ restic snapshots
 restic snapshots --tag nextcloud
 ```
 
-#### 2. Restore Files
+##### 2. Restore Files
 
 ```bash
 # Restore entire snapshot to temporary location
@@ -301,7 +334,7 @@ restic restore <snapshot-id> \
   --include /backup/nextcloud_db.sql
 ```
 
-#### 3. Restore to Production
+##### 3. Restore to Production
 
 **⚠️ Warning**: This will overwrite your production data. Always test with a temporary restore first!
 
@@ -358,7 +391,7 @@ sudo docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'
 ```
 
-#### 4. Restore Specific Files Only
+##### 4. Restore Specific Files Only
 
 If you only need to restore specific files (e.g., accidentally deleted user files):
 
@@ -380,7 +413,7 @@ docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan username'
 ```
 
-#### 5. Complete Disaster Recovery
+##### 5. Complete Disaster Recovery
 
 For complete infrastructure loss:
 
@@ -556,6 +589,7 @@ uv run pyinfra/configure_vps.py --dry
 │       ├── nextcloud.config.php
 │       ├── nextcloud-entrypoint.sh
 │       └── backup.sh
+├── restore.sh          # Automated backup restoration utility
 ├── .env                # Environment variables (gitignored)
 ├── .env.example        # Template for environment variables
 └── README.md           # This file
