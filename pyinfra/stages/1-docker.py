@@ -22,6 +22,7 @@ AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.your-objectstorage.com"
 # Get bucket name dynamically from Terraform outputs
 AWS_S3_BUCKET = get_terraform_output("s3_bucket")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
+HEALTHCHECK_URL = os.environ.get("HEALTHCHECK_URL", "")
 
 # SMTP configuration (using official Nextcloud Docker env var names)
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp-relay.brevo.com")
@@ -76,7 +77,8 @@ server.shell(
         f"mkdir -p {MOUNT_POINT}/nextcloud_mastercontainer",
         f"mkdir -p {MOUNT_POINT}/ncdata",
         f"mkdir -p {MOUNT_POINT}/nextcloud_db",
-        f"mkdir -p {MOUNT_POINT}/nextcloud_data"
+        f"mkdir -p {MOUNT_POINT}/nextcloud_data",
+        f"mkdir -p {MOUNT_POINT}/redis_data"
     ],
     _sudo=True,
 )
@@ -140,6 +142,7 @@ files.template(
         f"AWS_S3_ENDPOINT={AWS_S3_ENDPOINT}\n"
         f"AWS_S3_BUCKET={AWS_S3_BUCKET}\n"
         f"BACKUP_RETENTION_DAYS={BACKUP_RETENTION_DAYS}\n"
+        f"HEALTHCHECK_URL={HEALTHCHECK_URL}\n"
         f"SMTP_HOST={SMTP_HOST}\n"
         f"SMTP_PORT={SMTP_PORT}\n"
         f"SMTP_SECURE={SMTP_SECURE}\n"

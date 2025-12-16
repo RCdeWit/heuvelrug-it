@@ -10,9 +10,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     command: >
       postgres
-      -c shared_buffers=256MB
-      -c effective_cache_size=1GB
-      -c maintenance_work_mem=64MB
+      -c shared_buffers=2GB
+      -c effective_cache_size=10GB
+      -c maintenance_work_mem=512MB
       -c checkpoint_completion_target=0.9
       -c wal_buffers=16MB
       -c default_statistics_target=100
@@ -21,14 +21,26 @@ services:
       -c work_mem=4MB
       -c min_wal_size=1GB
       -c max_wal_size=4GB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     restart: always
-    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   nextcloud:
-    image: nextcloud:latest
+    image: nextcloud:32
     restart: always
     depends_on:
       - nextcloud-db
@@ -63,6 +75,12 @@ services:
       MAIL_DOMAIN: ${MAIL_DOMAIN}
     ports:
       - 8080:80
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/status.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
 
   collabora:
     image: collabora/code:latest
@@ -81,7 +99,7 @@ services:
       - seccomp:unconfined
 
   nextcloud-cron:
-    image: nextcloud:latest
+    image: nextcloud:32
     restart: always
     depends_on:
       - nextcloud
@@ -111,6 +129,7 @@ services:
       - {{ mount_point }}/nextcloud_db:/mnt/data/nextcloud_db:ro
       - {{ mount_point }}/nextcloud_data:/mnt/data/nextcloud_data:ro
       - {{ mount_point }}/ncdata:/mnt/data/ncdata:ro
+      - {{ mount_point }}/redis_data:/mnt/data/redis_data:ro
       - ./nextcloud/backup.sh:/backup.sh:ro
       - backup_temp:/backup
     environment:
@@ -121,11 +140,23 @@ services:
       AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS}
+      HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        apk add --no-cache docker-cli
+        apk add --no-cache docker-cli curl logrotate
+        cat > /etc/logrotate.conf << 'EOF'
+        /var/log/backup.log {
+            weekly
+            rotate 8
+            compress
+            missingok
+            notifempty
+            create 0640 root root
+        }
+        EOF
         echo "0 2 * * * /bin/sh /backup.sh >> /var/log/backup.log 2>&1" | crontab -
+        echo "0 3 * * 0 /usr/sbin/logrotate /etc/logrotate.conf" | crontab -
         crond -f -l 2
 
 volumes:
@@ -141,5 +172,11 @@ volumes:
       type: none
       o: bind
       device: {{ mount_point }}/nextcloud_data
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ mount_point }}/redis_data
   backup_temp:
     driver: local

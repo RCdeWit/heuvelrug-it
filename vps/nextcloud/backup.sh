@@ -8,6 +8,8 @@ BACKUP_DIR="/backup"
 DB_BACKUP_FILE="${BACKUP_DIR}/nextcloud_db.sql"
 # Use RESTIC_REPOSITORY if set, otherwise construct from endpoint and bucket
 RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}}"
+# Healthcheck URL (optional)
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
 
 # Create backup directory if it doesn't exist
 mkdir -p "${BACKUP_DIR}"
@@ -21,25 +23,39 @@ fi
 
 # Enable Nextcloud maintenance mode
 echo "[$(date)] Enabling Nextcloud maintenance mode..."
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on' || true
+if ! docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
+    echo "[$(date)] ERROR: Failed to enable maintenance mode. Aborting backup."
+    exit 1
+fi
 
 # Dump PostgreSQL database
 echo "[$(date)] Dumping PostgreSQL database..."
-docker exec nextcloud-nextcloud-db-1 pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"
+if ! docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud-db pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"; then
+    echo "[$(date)] ERROR: Database dump failed!"
+    # Disable maintenance mode before exiting
+    docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+    exit 1
+fi
 
 # Backup with Restic
 echo "[$(date)] Running Restic backup..."
-restic -r "${RESTIC_REPO}" backup \
+if ! restic -r "${RESTIC_REPO}" backup \
     --tag nextcloud \
     --tag daily \
     "${BACKUP_DIR}" \
     /mnt/data/nextcloud_db \
     /mnt/data/nextcloud_data \
-    /mnt/data/ncdata
+    /mnt/data/ncdata \
+    /mnt/data/redis_data; then
+    echo "[$(date)] ERROR: Backup failed!"
+    # Disable maintenance mode before exiting
+    docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+    exit 1
+fi
 
 # Disable Nextcloud maintenance mode
 echo "[$(date)] Disabling Nextcloud maintenance mode..."
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
 
 # Prune old backups
 echo "[$(date)] Pruning old backups..."
@@ -62,3 +78,13 @@ echo "[$(date)] Backup completed successfully!"
 
 # Show repository stats
 restic -r "${RESTIC_REPO}" stats --mode restore-size
+
+# Ping healthcheck service if URL is configured
+if [ -n "$HEALTHCHECK_URL" ]; then
+    echo "[$(date)] Pinging healthcheck service..."
+    if curl -fsS --retry 3 --max-time 10 "$HEALTHCHECK_URL" > /dev/null 2>&1; then
+        echo "[$(date)] Healthcheck ping successful"
+    else
+        echo "[$(date)] WARNING: Healthcheck ping failed (non-fatal)"
+    fi
+fi

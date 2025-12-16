@@ -9,10 +9,20 @@ from utils.find_project_root import find_project_root
 PROJECT_ROOT = find_project_root()
 HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
 DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
+GO_VERSION = os.environ.get("GO_VERSION", "1.23.4")
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
-    commands=["ufw allow proto tcp from any to any port 80,443", "ufw --force enable"],
+    commands=[
+        "ufw allow proto tcp from any to any port 80,443",
+        "ufw --force enable"
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Verify firewall allows HTTP/HTTPS",
+    commands=["ufw status | grep -E '80|443'"],
     _sudo=True,
 )
 
@@ -36,7 +46,7 @@ server.shell(
 server.shell(
     name="Install Go",
     commands=[
-        "wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz -O /tmp/go.tar.gz",
+        f"wget https://go.dev/dl/go{GO_VERSION}.linux-amd64.tar.gz -O /tmp/go.tar.gz",
         "rm -rf /usr/local/go",
         "tar -C /usr/local -xzf /tmp/go.tar.gz",
         "ln -sf /usr/local/go/bin/go /usr/bin/go",
