@@ -155,8 +155,7 @@ services:
             create 0640 root root
         }
         EOF
-        echo "0 2 * * * /bin/sh /backup.sh >> /var/log/backup.log 2>&1" | crontab -
-        echo "0 3 * * 0 /usr/sbin/logrotate /etc/logrotate.conf" | crontab -
+        (echo "0 2 * * * /bin/sh /backup.sh >> /var/log/backup.log 2>&1"; echo "0 3 * * 0 /usr/sbin/logrotate /etc/logrotate.conf") | crontab -
         crond -f -l 2
 
 volumes:

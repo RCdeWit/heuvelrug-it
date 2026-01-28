@@ -11,6 +11,16 @@ RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}}"
 # Healthcheck URL (optional)
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
 
+# Function to ping healthcheck on failure
+ping_failure() {
+    if [ -n "$HEALTHCHECK_URL" ]; then
+        curl -fsS --retry 3 --max-time 10 "${HEALTHCHECK_URL}/fail" > /dev/null 2>&1 || true
+    fi
+}
+
+# Trap to ping failure on any exit with non-zero status
+trap 'if [ $? -ne 0 ]; then ping_failure; fi' EXIT
+
 # Create backup directory if it doesn't exist
 mkdir -p "${BACKUP_DIR}"
 
@@ -21,19 +31,23 @@ if ! restic -r "${RESTIC_REPO}" snapshots &>/dev/null; then
     restic -r "${RESTIC_REPO}" init
 fi
 
+# Container names (from docker-compose project "nextcloud")
+NEXTCLOUD_CONTAINER="nextcloud-nextcloud-1"
+DB_CONTAINER="nextcloud-nextcloud-db-1"
+
 # Enable Nextcloud maintenance mode
 echo "[$(date)] Enabling Nextcloud maintenance mode..."
-if ! docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
+if ! docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
     echo "[$(date)] ERROR: Failed to enable maintenance mode. Aborting backup."
     exit 1
 fi
 
 # Dump PostgreSQL database
 echo "[$(date)] Dumping PostgreSQL database..."
-if ! docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud-db pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"; then
+if ! docker exec -T "$DB_CONTAINER" pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"; then
     echo "[$(date)] ERROR: Database dump failed!"
     # Disable maintenance mode before exiting
-    docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+    docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
     exit 1
 fi
 
@@ -49,13 +63,13 @@ if ! restic -r "${RESTIC_REPO}" backup \
     /mnt/data/redis_data; then
     echo "[$(date)] ERROR: Backup failed!"
     # Disable maintenance mode before exiting
-    docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+    docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
     exit 1
 fi
 
 # Disable Nextcloud maintenance mode
 echo "[$(date)] Disabling Nextcloud maintenance mode..."
-docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
 
 # Prune old backups
 echo "[$(date)] Pruning old backups..."
