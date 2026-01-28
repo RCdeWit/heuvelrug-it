@@ -37,17 +37,17 @@ DB_CONTAINER="nextcloud-nextcloud-db-1"
 
 # Enable Nextcloud maintenance mode
 echo "[$(date)] Enabling Nextcloud maintenance mode..."
-if ! docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
+if ! docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
     echo "[$(date)] ERROR: Failed to enable maintenance mode. Aborting backup."
     exit 1
 fi
 
 # Dump PostgreSQL database
 echo "[$(date)] Dumping PostgreSQL database..."
-if ! docker exec -T "$DB_CONTAINER" pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"; then
+if ! docker exec "$DB_CONTAINER" pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"; then
     echo "[$(date)] ERROR: Database dump failed!"
     # Disable maintenance mode before exiting
-    docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+    docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
     exit 1
 fi
 
@@ -63,13 +63,13 @@ if ! restic -r "${RESTIC_REPO}" backup \
     /mnt/data/redis_data; then
     echo "[$(date)] ERROR: Backup failed!"
     # Disable maintenance mode before exiting
-    docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+    docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
     exit 1
 fi
 
 # Disable Nextcloud maintenance mode
 echo "[$(date)] Disabling Nextcloud maintenance mode..."
-docker exec -T "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
 
 # Prune old backups
 echo "[$(date)] Pruning old backups..."
