@@ -10,7 +10,7 @@ resource "hcloud_ssh_key" "main" {
 resource "hcloud_server" "drive_instance" {
   name        = "${var.project_name}-${random_id.suffix.hex}-nextcloud"
   image       = "ubuntu-24.04"
-  server_type = "cpx32"
+  server_type = "cpx42"
   location    = "nbg1"
   public_net {
     ipv4_enabled = true
