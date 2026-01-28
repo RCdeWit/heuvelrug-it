@@ -164,3 +164,70 @@ server.shell(
     ],
     _sudo=True,
 )
+
+server.shell(
+    name="Wait for PostgreSQL to be ready",
+    commands=[
+        "for i in $(seq 1 30); do "
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud-db pg_isready -U nextcloud && break || sleep 2; "
+        "done"
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Fix database object ownership (ensure nextcloud user owns all objects)",
+    commands=[
+        # nextcloud is the superuser (POSTGRES_USER=nextcloud in docker-compose)
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud-db "
+        "psql -U nextcloud -d nextcloud -c "
+        "\"DO \\$\\$ "
+        "DECLARE r RECORD; "
+        "BEGIN "
+        "FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner != 'nextcloud' LOOP "
+        "EXECUTE 'ALTER TABLE ' || quote_ident(r.tablename) || ' OWNER TO nextcloud'; "
+        "END LOOP; "
+        "FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public' LOOP "
+        "EXECUTE 'ALTER SEQUENCE ' || quote_ident(r.sequence_name) || ' OWNER TO nextcloud'; "
+        "END LOOP; "
+        "END \\$\\$;\""
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Wait for Nextcloud to be ready",
+    commands=[
+        # Wait for Nextcloud container to be running and config.php to exist
+        "for i in $(seq 1 60); do "
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud test -f /var/www/html/config/config.php && break || sleep 5; "
+        "done"
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Fix Nextcloud config to use nextcloud database user",
+    commands=[
+        # Nextcloud creates oc_admin* users on init, but we want to use the nextcloud superuser
+        # This ensures consistency with the ownership fix and prevents permission issues
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud "
+        f"sed -i \"s/'dbuser' => 'oc_admin[^']*'/'dbuser' => 'nextcloud'/\" /var/www/html/config/config.php",
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud "
+        f"sed -i \"s/'dbpassword' => '[^']*'/'dbpassword' => '{POSTGRES_PASSWORD}'/\" /var/www/html/config/config.php"
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Run Nextcloud upgrade if needed",
+    commands=[
+        # Run upgrade if needed (handles maintenance mode automatically)
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T -u www-data nextcloud "
+        "php occ upgrade --no-interaction || true",
+        # Disable maintenance mode if it's still on
+        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T -u www-data nextcloud "
+        "php occ maintenance:mode --off || true"
+    ],
+    _sudo=True,
+)

@@ -34,8 +34,9 @@ def main():
     if args.fresh:
         run_pyinfra("0-bootstrap.py", ssh_user="root", auto_approve=args.auto_approve)
 
-    run_pyinfra("1-docker.py", auto_approve=args.auto_approve)
-    run_pyinfra("2-caddy.py", auto_approve=args.auto_approve)
+    run_pyinfra("1-system.py", auto_approve=args.auto_approve)
+    run_pyinfra("2-docker.py", auto_approve=args.auto_approve)
+    run_pyinfra("3-caddy.py", auto_approve=args.auto_approve)
 
 if __name__ == "__main__":
     main()
