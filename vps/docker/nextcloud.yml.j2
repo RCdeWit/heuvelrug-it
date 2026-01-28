@@ -40,7 +40,7 @@ services:
       retries: 3
 
   nextcloud:
-    image: nextcloud:32
+    image: nextcloud:32.0.5
     restart: always
     depends_on:
       - nextcloud-db
@@ -99,7 +99,7 @@ services:
       - seccomp:unconfined
 
   nextcloud-cron:
-    image: nextcloud:32
+    image: nextcloud:32.0.5
     restart: always
     depends_on:
       - nextcloud
