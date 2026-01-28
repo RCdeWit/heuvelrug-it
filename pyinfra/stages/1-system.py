@@ -5,6 +5,16 @@ from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
 
+apt.update(
+    name="Update apt package lists",
+    _sudo=True,
+)
+
+apt.upgrade(
+    name="Apply pending security updates",
+    _sudo=True,
+)
+
 apt.packages(
     name="Install unattended-upgrades",
     packages=["unattended-upgrades", "apt-listchanges"],
