@@ -1,0 +1,92 @@
+# Janus Gateway Configuration for Nextcloud Talk
+# See: https://janus.conf.meetecho.com/docs/
+
+general: {
+    # Configuration folder (for mwalbeck/janus-gateway image)
+    configs_folder = "/opt/janus/etc/janus"
+
+    # Plugin folder (for mwalbeck/janus-gateway image)
+    plugins_folder = "/opt/janus/lib/janus/plugins"
+
+    # Transport folder (for mwalbeck/janus-gateway image)
+    transports_folder = "/opt/janus/lib/janus/transports"
+
+    # Event handlers folder (for mwalbeck/janus-gateway image)
+    events_folder = "/opt/janus/lib/janus/events"
+
+    # Logging
+    log_to_stdout = true
+    debug_level = 7
+
+    # Admin secret (for admin API)
+    admin_secret = "janusoverlord"
+
+    # API secret for signaling server to use
+    api_secret = "{{ janus_api_secret }}"
+
+    # Token authentication (optional)
+    token_auth = false
+
+    # Session timeout (seconds)
+    session_timeout = 60
+
+    # Reclaim session timeout
+    reclaim_session_timeout = 0
+
+    # Server name
+    server_name = "Nextcloud Talk Janus"
+}
+
+# Media settings
+media: {
+    # IPv6 support
+    ipv6 = false
+
+    # Minimum port for RTP traffic
+    rtp_port_range = "20000-40000"
+
+    # DTLS ciphers
+    dtls_ciphers = "DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK"
+
+    # DTLS timeout
+    dtls_timeout = 500
+}
+
+# NAT settings
+nat: {
+    # STUN server - use public hostname since Docker internal networking doesn't work
+    # (host.docker.internal resolves to docker0 bridge which isn't routable from compose network)
+    stun_server = "turn.{{ domain }}"
+    stun_port = 3478
+
+    # Enable ICE-Lite
+    nice_debug = false
+
+    # Enable full ICE trickle
+    full_trickle = true
+
+    # Ignore mDNS candidates
+    ignore_mdns = true
+
+    # TURN server configuration via public hostname
+    turn_server = "turn.{{ domain }}"
+    turn_port = 3478
+    turn_type = "udp"
+    turn_user = "turnuser"
+    turn_pwd = "{{ turn_secret }}"
+}
+
+# Plugins to load
+plugins: {
+    disable = "libjanus_audiobridge.so,libjanus_echotest.so,libjanus_nosip.so,libjanus_recordplay.so,libjanus_sip.so,libjanus_streaming.so,libjanus_textroom.so,libjanus_videocall.so,libjanus_voicemail.so"
+}
+
+# Transports to load
+transports: {
+    disable = "libjanus_http.so,libjanus_pfunix.so,libjanus_nanomsg.so,libjanus_rabbitmq.so,libjanus_mqtt.so"
+}
+
+# Event handlers
+events: {
+    broadcast = true
+}

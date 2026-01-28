@@ -47,6 +47,44 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments 
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments public_wopi_url --value=https://office.{{ domain }}' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments disable_certificate_verification --value=""' || true
 
+# Install and configure Nextcloud Talk for video conferencing
+echo "Installing Nextcloud Talk..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install spreed' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable spreed' || true
+
+# Wait for Talk app to be fully available
+echo "Waiting for Talk app to be ready..."
+sleep 5
+
+# Validate Talk secrets are set
+if [ -z "${TURN_SECRET}" ]; then
+    echo "ERROR: TURN_SECRET is not set!"
+fi
+if [ -z "${SIGNALING_SECRET}" ]; then
+    echo "ERROR: SIGNALING_SECRET is not set!"
+fi
+
+# Configure STUN server (use our own coturn)
+# Format: hostname:port (UI adds the stun: prefix)
+echo "Configuring Talk STUN server..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set spreed stun_servers --value="[\"turn.{{ domain }}:3478\"]"'
+
+# Configure TURN server with shared secret
+# Format: hostname:port (UI adds the turn: prefix)
+echo "Configuring Talk TURN server..."
+if [ -n "${TURN_SECRET}" ]; then
+    su -s /bin/bash www-data -c "php /var/www/html/occ config:app:set spreed turn_servers --value='[{\"server\":\"turn.{{ domain }}:3478\",\"secret\":\"${TURN_SECRET}\",\"protocols\":\"udp,tcp\"}]'"
+fi
+
+# Configure High Performance Backend (signaling server)
+# Talk 22.x expects signaling_servers as a JSON object (not array) with secret at top level
+echo "Configuring Talk High Performance Backend..."
+if [ -n "${SIGNALING_SECRET}" ]; then
+    su -s /bin/bash www-data -c "php /var/www/html/occ config:app:set spreed signaling_servers --value='{\"server\":\"https://signaling.{{ domain }}/\",\"verify\":true,\"secret\":\"${SIGNALING_SECRET}\"}'"
+else
+    echo "ERROR: Cannot configure HPB - SIGNALING_SECRET env var is empty!"
+fi
+
 # Run mimetype migration if not already done
 MIGRATION_FLAG="/var/www/html/data/.mimetype-migration-done"
 if [ ! -f "$MIGRATION_FLAG" ]; then

@@ -73,6 +73,9 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
       MAIL_DOMAIN: ${MAIL_DOMAIN}
+      # Nextcloud Talk configuration (for entrypoint script)
+      TURN_SECRET: ${TURN_SECRET}
+      SIGNALING_SECRET: ${SIGNALING_SECRET}
     ports:
       - 8080:80
     healthcheck:
@@ -157,6 +160,62 @@ services:
         EOF
         (echo "0 2 * * * /bin/sh /backup.sh >> /var/log/backup.log 2>&1"; echo "0 3 * * 0 /usr/sbin/logrotate /etc/logrotate.conf") | crontab -
         crond -f -l 2
+
+  # ============================================================================
+  # Nextcloud Talk - Video Conferencing Components
+  # ============================================================================
+
+  # TURN server for NAT traversal - required for reliable video calls
+  coturn:
+    image: coturn/coturn:latest
+    restart: always
+    network_mode: host
+    volumes:
+      - ./talk/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    healthcheck:
+      test: ["CMD", "turnadmin", "-l", "-N", "127.0.0.1", "-p", "3478"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # High Performance Backend (HPB) - signaling server for 5+ participant calls
+  signaling:
+    image: strukturag/nextcloud-spreed-signaling:latest
+    restart: always
+    depends_on:
+      - nextcloud
+      - nats
+      - janus
+    volumes:
+      - ./talk/signaling.conf:/config/server.conf:ro
+    ports:
+      - 8081:8080
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/welcome"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # NATS server - message broker required by the signaling server
+  nats:
+    image: nats:latest
+    restart: always
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./talk/nats.conf:/etc/nats/nats.conf:ro
+
+  # Janus WebRTC gateway - media server for the signaling backend
+  janus:
+    image: mwalbeck/janus-gateway:latest
+    restart: always
+    command: ["/opt/janus/bin/janus", "-F", "/opt/janus/etc/janus", "--full-trickle"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./talk/janus.jcfg:/opt/janus/etc/janus/janus.jcfg:ro
+      - ./talk/janus.transport.websockets.jcfg:/opt/janus/etc/janus/janus.transport.websockets.jcfg:ro
+    ports:
+      - 8188:8188
 
 volumes:
   nextcloud_db:

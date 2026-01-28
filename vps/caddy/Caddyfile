@@ -37,3 +37,36 @@ office.{{ domain }} {
 healthcheck.{{ domain }} {
     respond "OK" 200
 }
+
+# Nextcloud Talk High Performance Backend (signaling server)
+signaling.{{ domain }} {
+    tls {
+        dns hetzner {env.HETZNER_API_TOKEN}
+        resolvers 8.8.8.8:53 1.1.1.1:53
+    }
+
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    reverse_proxy http://localhost:8081 {
+        # Flush immediately for WebSocket/SSE
+        flush_interval -1
+        transport http {
+            # WebSocket connections need long timeouts
+            read_timeout 3600s
+            write_timeout 3600s
+        }
+    }
+}
+
+# TURN server - direct TCP/UDP access, no reverse proxy needed
+# Coturn runs on host network using ports 3478 (STUN/TURN) and 5349 (TURNS)
+turn.{{ domain }} {
+    tls {
+        dns hetzner {env.HETZNER_API_TOKEN}
+        resolvers 8.8.8.8:53 1.1.1.1:53
+    }
+
+    # This just serves the TLS certificate for TURNS (port 5349)
+    # The actual TURN traffic bypasses Caddy via host networking
+    respond "TURN server" 200
+}

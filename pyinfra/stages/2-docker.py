@@ -24,6 +24,13 @@ AWS_S3_BUCKET = get_terraform_output("s3_bucket")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
 HEALTHCHECK_URL = os.environ.get("HEALTHCHECK_URL", "")
 
+# Nextcloud Talk configuration
+TURN_SECRET = os.environ.get("TURN_SECRET", "")
+SIGNALING_SECRET = os.environ.get("SIGNALING_SECRET", "")
+SIGNALING_HASHKEY = os.environ.get("SIGNALING_HASHKEY", "")
+SIGNALING_BLOCKKEY = os.environ.get("SIGNALING_BLOCKKEY", "")
+JANUS_API_SECRET = os.environ.get("JANUS_API_SECRET", "")
+
 # SMTP configuration (using official Nextcloud Docker env var names)
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp-relay.brevo.com")
 SMTP_PORT = os.environ.get("SMTP_PORT", "587")
@@ -129,6 +136,80 @@ files.put(
     _sudo=True,
 )
 
+# Nextcloud Talk - Firewall rules for TURN/STUN
+server.shell(
+    name="Allow TURN/STUN ports through firewall",
+    commands=[
+        # STUN/TURN standard ports
+        "ufw allow 3478/udp comment 'TURN/STUN UDP'",
+        "ufw allow 3478/tcp comment 'TURN/STUN TCP'",
+        # TURNS (TLS) port
+        "ufw allow 5349/tcp comment 'TURNS TLS'",
+        # TURN relay port range (matching turnserver.conf min-port/max-port)
+        # 100 ports is enough for ~50 concurrent calls
+        "ufw allow 49152:49252/udp comment 'TURN relay range'",
+    ],
+    _sudo=True,
+)
+
+# Nextcloud Talk configuration files
+server.shell(
+    name="Create Talk config directory",
+    commands=["mkdir -p /opt/nextcloud/talk"],
+    _sudo=True,
+)
+
+files.template(
+    name="Upload coturn (TURN server) configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/talk/turnserver.conf",
+    dest="/opt/nextcloud/talk/turnserver.conf",
+    mode="0644",
+    domain=DOMAIN,
+    turn_secret=TURN_SECRET,
+    _sudo=True,
+)
+
+files.template(
+    name="Upload signaling server configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/talk/signaling.conf",
+    dest="/opt/nextcloud/talk/signaling.conf",
+    mode="0644",
+    domain=DOMAIN,
+    signaling_secret=SIGNALING_SECRET,
+    signaling_hashkey=SIGNALING_HASHKEY,
+    signaling_blockkey=SIGNALING_BLOCKKEY,
+    turn_secret=TURN_SECRET,
+    janus_api_secret=JANUS_API_SECRET,
+    _sudo=True,
+)
+
+files.template(
+    name="Upload NATS configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/talk/nats.conf",
+    dest="/opt/nextcloud/talk/nats.conf",
+    mode="0644",
+    _sudo=True,
+)
+
+files.template(
+    name="Upload Janus gateway configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/talk/janus.jcfg",
+    dest="/opt/nextcloud/talk/janus.jcfg",
+    mode="0644",
+    domain=DOMAIN,
+    turn_secret=TURN_SECRET,
+    janus_api_secret=JANUS_API_SECRET,
+    _sudo=True,
+)
+
+files.put(
+    name="Upload Janus WebSocket transport configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/talk/janus.transport.websockets.jcfg",
+    dest="/opt/nextcloud/talk/janus.transport.websockets.jcfg",
+    mode="0644",
+    _sudo=True,
+)
+
 files.template(
     name="Create .env file with secrets",
     src=StringIO(
@@ -151,6 +232,8 @@ files.template(
         f"SMTP_PASSWORD={SMTP_PASSWORD}\n"
         f"MAIL_FROM_ADDRESS={MAIL_FROM_ADDRESS}\n"
         f"MAIL_DOMAIN={DOMAIN}\n"
+        f"TURN_SECRET={TURN_SECRET}\n"
+        f"SIGNALING_SECRET={SIGNALING_SECRET}\n"
     ),
     dest="/opt/nextcloud/.env",
     mode="0600",
@@ -161,6 +244,14 @@ server.shell(
     name="Launch Nextcloud",
     commands=[
         "docker compose -f /opt/nextcloud/docker-compose.yml up -d"
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Restart Talk containers to apply config changes",
+    commands=[
+        "docker compose -f /opt/nextcloud/docker-compose.yml restart signaling janus coturn nats || true"
     ],
     _sudo=True,
 )

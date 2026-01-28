@@ -1,0 +1,17 @@
+# Janus WebSocket Transport Configuration
+# See: https://janus.conf.meetecho.com/docs/
+
+general: {
+    # Enable JSON format
+    json = "indented"
+
+    # Enable WebSocket transport (omit ws_ip to avoid Docker interface binding issues)
+    ws = true
+    ws_port = 8188
+
+    # Disable secure WebSocket (handled by reverse proxy)
+    wss = false
+
+    # Disable admin WebSocket
+    admin_ws = false
+}

@@ -132,6 +132,30 @@ resource "hcloud_zone_rrset" "dmarc" {
   ]
 }
 
+# Nextcloud Talk - DNS records for video conferencing components
+
+# TURN server - points to main server (coturn runs on host network)
+resource "hcloud_zone_rrset" "turn" {
+  zone    = hcloud_zone.domain.name
+  name    = "turn"
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.drive_instance.ipv4_address }
+  ]
+}
+
+# Signaling server (HPB) - for high performance backend
+resource "hcloud_zone_rrset" "signaling" {
+  zone    = hcloud_zone.domain.name
+  name    = "signaling"
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.drive_instance.ipv4_address }
+  ]
+}
+
 resource "minio_s3_bucket" "nextcloud_backups" {
   bucket = "${var.project_name}-${random_id.suffix.hex}-nextcloud-backups"
   acl    = "private"
