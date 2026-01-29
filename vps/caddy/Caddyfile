@@ -6,7 +6,15 @@ drive.{{ domain }} {
 
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
-    reverse_proxy http://localhost:8080
+    # Client Push (notify_push) - real-time updates for desktop/mobile clients
+    handle /push/* {
+        reverse_proxy http://localhost:7867
+    }
+
+    # Default handler for all other requests
+    handle {
+        reverse_proxy http://localhost:8080
+    }
 
     encode gzip zstd
 }

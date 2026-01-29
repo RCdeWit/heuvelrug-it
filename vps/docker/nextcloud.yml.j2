@@ -121,6 +121,41 @@ services:
       REDIS_HOST_PASSWORD: ${REDIS_PASSWORD}
     entrypoint: /cron.sh
 
+  # Client Push daemon - provides real-time updates to desktop/mobile clients
+  # Replaces polling with efficient push notifications via WebSocket
+  notify_push:
+    image: nextcloud:32.0.5
+    restart: always
+    depends_on:
+      - nextcloud
+      - nextcloud-db
+      - redis
+    volumes:
+      - nextcloud_data:/var/www/html:ro
+      - {{ mount_point }}/ncdata:/var/www/html/data:ro
+    environment:
+      # Port for the push server to listen on
+      PORT: 7867
+      # Nextcloud URL (internal Docker network)
+      NEXTCLOUD_URL: http://nextcloud
+    ports:
+      - 7867:7867
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Nextcloud to initialize and install notify_push app..."
+        while [ ! -f /var/www/html/custom_apps/notify_push/bin/x86_64/notify_push ]; do
+          sleep 10
+        done
+        echo "Starting notify_push daemon..."
+        exec /var/www/html/custom_apps/notify_push/bin/x86_64/notify_push /var/www/html/config/config.php
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -q --spider http://localhost:7867/push/test || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
   backup:
     image: restic/restic:latest
     restart: always

@@ -85,6 +85,19 @@ else
     echo "ERROR: Cannot configure HPB - SIGNALING_SECRET env var is empty!"
 fi
 
+# Install and configure Client Push (notify_push) for real-time sync
+echo "Installing Client Push (notify_push)..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install notify_push' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable notify_push' || true
+
+# Configure notify_push with the external URL
+# The push daemon runs in a separate container and is proxied via Caddy at /push
+echo "Configuring Client Push..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set notify_push base_endpoint --value="https://drive.{{ domain }}/push"' || true
+
+# Set trusted proxies for notify_push (Docker network range)
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set trusted_proxies 0 --value="172.16.0.0/12"' || true
+
 # Run mimetype migration if not already done
 MIGRATION_FLAG="/var/www/html/data/.mimetype-migration-done"
 if [ ! -f "$MIGRATION_FLAG" ]; then
