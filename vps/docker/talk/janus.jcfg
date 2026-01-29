@@ -22,7 +22,8 @@ general: {
     admin_secret = "janusoverlord"
 
     # API secret for signaling server to use
-    api_secret = "{{ janus_api_secret }}"
+    # Disabled - signaling server receives events via its MCU connection, not wsevh
+    # api_secret = "{{ janus_api_secret }}"
 
     # Token authentication (optional)
     token_auth = false
@@ -89,4 +90,6 @@ transports: {
 # Event handlers
 events: {
     broadcast = true
+    # Disable wsevh - signaling server receives events via its MCU connection
+    disable = "libjanus_wsevh.so,libjanus_sampleevh.so,libjanus_gelfevh.so"
 }

@@ -214,8 +214,9 @@ services:
     volumes:
       - ./talk/janus.jcfg:/opt/janus/etc/janus/janus.jcfg:ro
       - ./talk/janus.transport.websockets.jcfg:/opt/janus/etc/janus/janus.transport.websockets.jcfg:ro
-    ports:
-      - 8188:8188
+      # wsevh not needed - signaling server receives events via MCU connection
+    # No ports exposed - signaling connects via internal Docker network (ws://janus:8188)
+    # This prevents external access without api_secret authentication
 
 volumes:
   nextcloud_db:

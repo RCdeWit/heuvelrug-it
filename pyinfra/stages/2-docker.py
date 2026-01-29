@@ -210,6 +210,14 @@ files.put(
     _sudo=True,
 )
 
+files.put(
+    name="Upload Janus WebSocket event handler configuration",
+    src=f"{PROJECT_ROOT}/vps/docker/talk/janus.eventhandler.wsevh.jcfg",
+    dest="/opt/nextcloud/talk/janus.eventhandler.wsevh.jcfg",
+    mode="0644",
+    _sudo=True,
+)
+
 files.template(
     name="Create .env file with secrets",
     src=StringIO(

@@ -77,10 +77,10 @@ if [ -n "${TURN_SECRET}" ]; then
 fi
 
 # Configure High Performance Backend (signaling server)
-# Talk 22.x expects signaling_servers as a JSON object (not array) with secret at top level
+# Format: {"servers":[{"server":"url","verify":bool}],"secret":"shared-secret"}
 echo "Configuring Talk High Performance Backend..."
 if [ -n "${SIGNALING_SECRET}" ]; then
-    su -s /bin/bash www-data -c "php /var/www/html/occ config:app:set spreed signaling_servers --value='{\"server\":\"https://signaling.{{ domain }}/\",\"verify\":true,\"secret\":\"${SIGNALING_SECRET}\"}'"
+    su -s /bin/bash www-data -c "php /var/www/html/occ config:app:set spreed signaling_servers --value='{\"servers\":[{\"server\":\"https://signaling.{{ domain }}/\",\"verify\":true}],\"secret\":\"${SIGNALING_SECRET}\"}'"
 else
     echo "ERROR: Cannot configure HPB - SIGNALING_SECRET env var is empty!"
 fi
