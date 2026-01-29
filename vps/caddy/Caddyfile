@@ -57,16 +57,3 @@ signaling.{{ domain }} {
         }
     }
 }
-
-# TURN server - direct TCP/UDP access, no reverse proxy needed
-# Coturn runs on host network using ports 3478 (STUN/TURN) and 5349 (TURNS)
-turn.{{ domain }} {
-    tls {
-        dns hetzner {env.HETZNER_API_TOKEN}
-        resolvers 8.8.8.8:53 1.1.1.1:53
-    }
-
-    # This just serves the TLS certificate for TURNS (port 5349)
-    # The actual TURN traffic bypasses Caddy via host networking
-    respond "TURN server" 200
-}

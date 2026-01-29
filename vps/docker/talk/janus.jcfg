@@ -16,14 +16,10 @@ general: {
 
     # Logging
     log_to_stdout = true
-    debug_level = 7
+    debug_level = 4
 
-    # Admin secret (for admin API)
-    admin_secret = "janusoverlord"
-
-    # API secret for signaling server to use
-    # Disabled - signaling server receives events via its MCU connection, not wsevh
-    # api_secret = "{{ janus_api_secret }}"
+    # Admin secret (for admin API - randomized even though admin API is disabled)
+    admin_secret = "{{ janus_admin_secret }}"
 
     # Token authentication (optional)
     token_auth = false
@@ -70,11 +66,12 @@ nat: {
     ignore_mdns = true
 
     # TURN server configuration via public hostname
+    # Uses static credentials (janus user configured in turnserver.conf)
     turn_server = "turn.{{ domain }}"
     turn_port = 3478
     turn_type = "udp"
-    turn_user = "turnuser"
-    turn_pwd = "{{ turn_secret }}"
+    turn_user = "janus"
+    turn_pwd = "{{ janus_turn_password }}"
 }
 
 # Plugins to load

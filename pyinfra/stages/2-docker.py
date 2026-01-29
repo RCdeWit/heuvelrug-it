@@ -29,7 +29,8 @@ TURN_SECRET = os.environ.get("TURN_SECRET", "")
 SIGNALING_SECRET = os.environ.get("SIGNALING_SECRET", "")
 SIGNALING_HASHKEY = os.environ.get("SIGNALING_HASHKEY", "")
 SIGNALING_BLOCKKEY = os.environ.get("SIGNALING_BLOCKKEY", "")
-JANUS_API_SECRET = os.environ.get("JANUS_API_SECRET", "")
+JANUS_ADMIN_SECRET = os.environ.get("JANUS_ADMIN_SECRET", "")
+JANUS_TURN_PASSWORD = os.environ.get("JANUS_TURN_PASSWORD", "")
 
 # SMTP configuration (using official Nextcloud Docker env var names)
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp-relay.brevo.com")
@@ -143,8 +144,6 @@ server.shell(
         # STUN/TURN standard ports
         "ufw allow 3478/udp comment 'TURN/STUN UDP'",
         "ufw allow 3478/tcp comment 'TURN/STUN TCP'",
-        # TURNS (TLS) port
-        "ufw allow 5349/tcp comment 'TURNS TLS'",
         # TURN relay port range (matching turnserver.conf min-port/max-port)
         # 100 ports is enough for ~50 concurrent calls
         "ufw allow 49152:49252/udp comment 'TURN relay range'",
@@ -166,6 +165,7 @@ files.template(
     mode="0644",
     domain=DOMAIN,
     turn_secret=TURN_SECRET,
+    janus_turn_password=JANUS_TURN_PASSWORD,
     _sudo=True,
 )
 
@@ -178,12 +178,10 @@ files.template(
     signaling_secret=SIGNALING_SECRET,
     signaling_hashkey=SIGNALING_HASHKEY,
     signaling_blockkey=SIGNALING_BLOCKKEY,
-    turn_secret=TURN_SECRET,
-    janus_api_secret=JANUS_API_SECRET,
     _sudo=True,
 )
 
-files.template(
+files.put(
     name="Upload NATS configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/nats.conf",
     dest="/opt/nextcloud/talk/nats.conf",
@@ -197,8 +195,8 @@ files.template(
     dest="/opt/nextcloud/talk/janus.jcfg",
     mode="0644",
     domain=DOMAIN,
-    turn_secret=TURN_SECRET,
-    janus_api_secret=JANUS_API_SECRET,
+    janus_admin_secret=JANUS_ADMIN_SECRET,
+    janus_turn_password=JANUS_TURN_PASSWORD,
     _sudo=True,
 )
 
@@ -206,14 +204,6 @@ files.put(
     name="Upload Janus WebSocket transport configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/janus.transport.websockets.jcfg",
     dest="/opt/nextcloud/talk/janus.transport.websockets.jcfg",
-    mode="0644",
-    _sudo=True,
-)
-
-files.put(
-    name="Upload Janus WebSocket event handler configuration",
-    src=f"{PROJECT_ROOT}/vps/docker/talk/janus.eventhandler.wsevh.jcfg",
-    dest="/opt/nextcloud/talk/janus.eventhandler.wsevh.jcfg",
     mode="0644",
     _sudo=True,
 )
