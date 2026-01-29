@@ -96,13 +96,23 @@ echo "Installing Client Push (notify_push)..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install notify_push' 2>/dev/null || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable notify_push' || true
 
-# Configure notify_push with the external URL
-# The push daemon runs in a separate container and is proxied via Caddy at /push
-echo "Configuring Client Push..."
-su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set notify_push base_endpoint --value="https://drive.{{ domain }}/push"' || true
+# Run notify_push setup in background with retries
+# The push daemon runs in a separate container and needs time to start
+# This runs in the background so it doesn't block container startup
+(
+    echo "Waiting for notify_push daemon to be ready..."
+    sleep 30  # Give the daemon container time to start
 
-# Set trusted proxies for notify_push (Docker network range)
-su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set trusted_proxies 0 --value="172.16.0.0/12"' || true
+    for i in $(seq 1 12); do
+        echo "Attempting notify_push setup (attempt $i/12)..."
+        if su -s /bin/bash www-data -c 'php /var/www/html/occ notify_push:setup https://drive.{{ domain }}/push' 2>&1; then
+            echo "Client Push configured successfully!"
+            break
+        fi
+        echo "notify_push daemon not ready yet, waiting 30 seconds..."
+        sleep 30
+    done
+) &
 
 # Run mimetype migration if not already done
 MIGRATION_FLAG="/var/www/html/data/.mimetype-migration-done"
