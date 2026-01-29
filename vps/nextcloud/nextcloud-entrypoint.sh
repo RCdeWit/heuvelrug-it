@@ -47,6 +47,12 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments 
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments public_wopi_url --value=https://office.{{ domain }}' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments disable_certificate_verification --value=""' || true
 
+# Security: Restrict WOPI requests to only accept from Collabora container
+# This prevents unauthorized servers from fetching document content via WOPI
+# Docker Compose networks typically use 172.16.0.0/12 range
+echo "Configuring WOPI allowlist for Collabora..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set richdocuments wopi_allowlist --value="172.16.0.0/12"' || true
+
 # Install and configure Nextcloud Talk for video conferencing
 echo "Installing Nextcloud Talk..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install spreed' 2>/dev/null || true
