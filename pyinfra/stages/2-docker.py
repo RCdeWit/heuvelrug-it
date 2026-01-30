@@ -190,12 +190,15 @@ files.put(
     _sudo=True,
 )
 
+VPS_IP = get_terraform_output("vps_ip")
+
 files.template(
     name="Upload Janus gateway configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/janus.jcfg",
     dest="/opt/nextcloud/talk/janus.jcfg",
     mode="0644",
     domain=DOMAIN,
+    vps_ip=VPS_IP,
     janus_admin_secret=JANUS_ADMIN_SECRET,
     janus_turn_password=JANUS_TURN_PASSWORD,
     _sudo=True,

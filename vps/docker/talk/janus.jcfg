@@ -51,6 +51,10 @@ media: {
 
 # NAT settings
 nat: {
+    # NAT 1:1 mapping - tells Janus its real public IP
+    # Without this, Janus advertises Docker internal IPs (172.x.x.x) which clients can't reach
+    nat_1_1_mapping = "{{ vps_ip }}"
+
     # STUN server - use public hostname since Docker internal networking doesn't work
     # (host.docker.internal resolves to docker0 bridge which isn't routable from compose network)
     stun_server = "turn.{{ domain }}"
