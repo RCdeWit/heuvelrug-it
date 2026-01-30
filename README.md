@@ -60,7 +60,68 @@ Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud insta
 - **Nextcloud**: Self-hosted file sync and collaboration platform
   - **PostgreSQL 15**: Database backend
   - **Redis 7**: Caching and file locking
+- **ClamAV**: Antivirus daemon for file scanning
 - **Restic**: Encrypted, deduplicated backups to Object Storage
+
+### Nextcloud Apps
+
+Apps are managed automatically via the custom entrypoint script (`vps/nextcloud/nextcloud-entrypoint.sh`).
+
+**Installed apps:**
+
+| App | Description |
+|-----|-------------|
+| `richdocuments` | Nextcloud Office - document editing via Collabora |
+| `spreed` | Nextcloud Talk - video conferencing and chat |
+| `notify_push` | Client Push - real-time sync for desktop/mobile clients |
+| `admin_audit` | Audit logging - tracks user actions for compliance |
+| `files_antivirus` | Antivirus scanning - scans uploads via ClamAV daemon |
+
+**Disabled apps:**
+
+| App | Reason |
+|-----|--------|
+| `app_api` | External app hosting platform - not used |
+| `photos` | Photo gallery - not needed for file storage focus |
+
+**Available but not installed:**
+
+These apps can be enabled via Admin Settings → Apps:
+
+| App | Description |
+|-----|-------------|
+| `files_accesscontrol` | Automated file handling rules |
+| `twofactor_totp` | Two-factor authentication (TOTP) |
+| `bruteforcesettings` | Brute-force protection settings UI |
+| `suspicious_login` | Suspicious login detection |
+| `files_retention` | Automatic file retention policies |
+| `quota_warning` | Warn users when approaching storage quota |
+| `groupfolders` | Shared folders with group permissions |
+| `deck` | Kanban-style project management |
+| `calendar` | CalDAV calendar |
+| `contacts` | CardDAV contacts |
+| `mail` | Email client |
+| `notes` | Note-taking app |
+| `tasks` | Task management (integrates with calendar) |
+| `bookmarks` | Bookmark manager |
+
+**Managing apps via command line:**
+
+```bash
+# List installed apps
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ app:list'
+
+# Install and enable an app
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ app:install <app-id>'
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ app:enable <app-id>'
+
+# Disable an app
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ app:disable <app-id>'
+```
 
 ### Backup Strategy
 - **Frequency**: Daily at 2 AM (during maintenance window)

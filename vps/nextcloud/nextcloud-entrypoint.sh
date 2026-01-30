@@ -29,9 +29,10 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set skeletondir
 # via SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_NAME, SMTP_PASSWORD,
 # MAIL_FROM_ADDRESS, and MAIL_DOMAIN environment variables
 
-# Disable AppAPI
-echo "Disabling AppAPI..."
+# Disable unwanted default apps (see README.md for full app documentation)
+echo "Disabling unwanted apps..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:disable app_api' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:disable photos' 2>/dev/null || true
 
 # Install Nextcloud Office (uses external Collabora container)
 echo "Installing Nextcloud Office..."
@@ -113,6 +114,23 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable notify_push' || tr
         sleep 30
     done
 ) &
+
+# Install Audit Log for tracking user activity
+echo "Installing Audit Log..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install admin_audit' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable admin_audit' || true
+
+# Install Antivirus for Files (uses ClamAV daemon)
+echo "Installing Antivirus for Files..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install files_antivirus' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable files_antivirus' || true
+# Configure to use ClamAV daemon mode
+echo "Configuring antivirus to use ClamAV daemon..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_mode --value="daemon"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_host --value="clamav"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_port --value="3310"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_stream_max_length --value="104857600"' || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_infected_action --value="delete"' || true
 
 # Run mimetype migration if not already done
 MIGRATION_FLAG="/var/www/html/data/.mimetype-migration-done"

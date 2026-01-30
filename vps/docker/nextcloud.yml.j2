@@ -202,6 +202,19 @@ services:
         (echo "0 2 * * * /bin/sh /backup.sh >> /var/log/backup.log 2>&1"; echo "0 3 * * 0 /usr/sbin/logrotate /etc/logrotate.conf") | crontab -
         crond -f -l 2
 
+  # ClamAV antivirus daemon for file scanning
+  clamav:
+    image: clamav/clamav:latest
+    restart: always
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "3"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
   # ============================================================================
   # Nextcloud Talk - Video Conferencing Components
   # ============================================================================
@@ -280,3 +293,9 @@ volumes:
       device: {{ mount_point }}/redis_data
   backup_temp:
     driver: local
+  clamav_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ mount_point }}/clamav_data

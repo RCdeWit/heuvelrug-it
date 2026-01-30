@@ -86,7 +86,8 @@ server.shell(
         f"mkdir -p {MOUNT_POINT}/ncdata",
         f"mkdir -p {MOUNT_POINT}/nextcloud_db",
         f"mkdir -p {MOUNT_POINT}/nextcloud_data",
-        f"mkdir -p {MOUNT_POINT}/redis_data"
+        f"mkdir -p {MOUNT_POINT}/redis_data",
+        f"mkdir -p {MOUNT_POINT}/clamav_data"
     ],
     _sudo=True,
 )
