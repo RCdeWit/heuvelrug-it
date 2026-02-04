@@ -95,6 +95,8 @@ services:
       # This prevents unauthorized hosts from requesting document content
       - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:storage.wopi.host[0]=nextcloud
       - dictionaries=en_US nl_NL
+    volumes:
+      - ./collabora/fonts:/opt/collaboraoffice/share/fonts/truetype/custom:ro
     ports:
       - 9980:9980
     cap_add:
