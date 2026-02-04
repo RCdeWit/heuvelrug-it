@@ -86,7 +86,7 @@ services:
       start_period: 90s
 
   collabora:
-    image: collabora/code:latest
+    image: collabora/code:25.04.7.5
     restart: always
     environment:
       # Allowed Nextcloud instance (WOPI client)
@@ -163,7 +163,7 @@ services:
       start_period: 120s
 
   backup:
-    image: restic/restic:latest
+    image: restic/restic:0.18.1
     restart: always
     depends_on:
       - nextcloud
@@ -204,7 +204,7 @@ services:
 
   # ClamAV antivirus daemon for file scanning
   clamav:
-    image: clamav/clamav:latest
+    image: clamav/clamav:1.5.1
     restart: always
     volumes:
       - clamav_data:/var/lib/clamav
@@ -221,7 +221,7 @@ services:
 
   # TURN server for NAT traversal - required for reliable video calls
   coturn:
-    image: coturn/coturn:latest
+    image: coturn/coturn:4.8.0
     restart: always
     network_mode: host
     volumes:
@@ -234,7 +234,7 @@ services:
 
   # High Performance Backend (HPB) - signaling server for 5+ participant calls
   signaling:
-    image: strukturag/nextcloud-spreed-signaling:latest
+    image: strukturag/nextcloud-spreed-signaling:2.1.0
     restart: always
     depends_on:
       - nextcloud
@@ -252,7 +252,7 @@ services:
 
   # NATS server - message broker required by the signaling server
   nats:
-    image: nats:latest
+    image: nats:2.12.4
     restart: always
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
@@ -260,7 +260,7 @@ services:
 
   # Janus WebRTC gateway - media server for the signaling backend
   janus:
-    image: mwalbeck/janus-gateway:latest
+    image: mwalbeck/janus-gateway:1.3.3
     restart: always
     command: ["/opt/janus/bin/janus", "-F", "/opt/janus/etc/janus", "--full-trickle"]
     extra_hosts:
