@@ -1,9 +1,21 @@
+import os
 from pathlib import Path
-from pyinfra.operations import apt, files
+
+from pyinfra import host
+from pyinfra.facts.server import LinuxDistribution
+from pyinfra.operations import apt, files, server
 
 from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
+
+# Tailscale configuration
+TAILSCALE_AUTH_KEY = os.environ.get("TAILSCALE_AUTH_KEY", "")
+
+# Get Linux distribution info for Tailscale repo
+linux_distribution = host.get_fact(LinuxDistribution)
+linux_name = linux_distribution["release_meta"]["ID"]
+linux_codename = linux_distribution["release_meta"]["VERSION_CODENAME"]
 
 apt.update(
     name="Update apt package lists",
@@ -34,3 +46,43 @@ files.template(
     dest="/etc/apt/apt.conf.d/20auto-upgrades",
     _sudo=True,
 )
+
+# ============================================================================
+# Tailscale - Mesh VPN for private networking
+# ============================================================================
+
+apt.key(
+    name="Add Tailscale apt GPG key",
+    src=f"https://pkgs.tailscale.com/stable/{linux_name}/{linux_codename}.noarmor.gpg",
+    _sudo=True,
+)
+
+apt.repo(
+    name="Add Tailscale apt repository",
+    src=f"deb https://pkgs.tailscale.com/stable/{linux_name} {linux_codename} main",
+    filename="tailscale",
+    _sudo=True,
+)
+
+apt.packages(
+    name="Install Tailscale",
+    packages=["tailscale"],
+    update=True,
+    latest=True,
+    _sudo=True,
+)
+
+if TAILSCALE_AUTH_KEY:
+    server.shell(
+        name="Join Tailnet with auth key",
+        commands=[
+            f"tailscale up --authkey={TAILSCALE_AUTH_KEY} --advertise-tags=tag:vps-external"
+        ],
+        _sudo=True,
+    )
+else:
+    server.shell(
+        name="Check Tailscale status (manual auth required if not connected)",
+        commands=["tailscale status || echo 'Run: sudo tailscale up' to authenticate"],
+        _sudo=True,
+    )

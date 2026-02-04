@@ -272,6 +272,29 @@ services:
     # No ports exposed - signaling connects via internal Docker network (ws://janus:8188)
     # This prevents external access without api_secret authentication
 
+  # ============================================================================
+  # Komodo Periphery - Docker management agent
+  # ============================================================================
+  # Connects to Komodo Core over Tailnet for container orchestration
+  # Port 8120 only listens on Tailscale interface (not exposed to internet)
+
+  periphery:
+    image: ghcr.io/moghtech/komodo-periphery:latest
+    restart: unless-stopped
+    labels:
+      komodo.skip: "true"
+    environment:
+      PERIPHERY_PASSKEYS: ${PERIPHERY_PASSKEY}
+      PERIPHERY_SSL_ENABLED: "false"
+      PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc
+      - /etc/komodo:/etc/komodo
+    ports:
+      # Bind to Tailscale IP only - set TAILSCALE_IP in .env
+      - "${TAILSCALE_IP:-127.0.0.1}:8120:8120"
+
 volumes:
   nextcloud_db:
     driver: local

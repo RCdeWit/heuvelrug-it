@@ -65,6 +65,8 @@ uv run pyinfra/configure_vps.py --dry  # Dry run PyInfra (doesn't exist yet - us
 - **Docker Compose** for services (Nextcloud, PostgreSQL, Redis, Collabora, ClamAV)
 - **Caddy** for reverse proxy with automatic HTTPS
 - **Restic** for encrypted backups to Hetzner Object Storage
+- **Tailscale** for mesh VPN (private networking with other infrastructure)
+- **Komodo Periphery** for Docker container monitoring/management
 
 ## Environment Variables
 
@@ -75,14 +77,16 @@ All secrets and configuration are in `.env` (see `.env.example` for template). K
 - `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `NEXTCLOUD_ADMIN_PASSWORD`
 - `RESTIC_PASSWORD` - Backup encryption password
 - `SMTP_*` - Email configuration (Brevo)
+- `TAILSCALE_AUTH_KEY` - Auth key for joining tailnet (optional, can auth manually)
+- `PERIPHERY_PASSKEY` - Passkey for Komodo Periphery agent authentication
 
 ## PyInfra Stages
 
 Stages run in order (0→3). Stage 0 only runs with `--fresh`:
 
 1. **0-bootstrap.py** - Creates deploy user, sets up SSH (runs as root)
-2. **1-system.py** - System packages, firewall, unattended upgrades
-3. **2-docker.py** - Docker installation, Nextcloud stack deployment
+2. **1-system.py** - System packages, firewall, unattended upgrades, Tailscale
+3. **2-docker.py** - Docker installation, Nextcloud stack deployment, Komodo Periphery
 4. **3-caddy.py** - Caddy reverse proxy configuration
 
 ## Patterns & Conventions
@@ -99,6 +103,16 @@ ssh deploy@<vps-ip>                    # SSH to VPS
 docker logs nextcloud-nextcloud-1      # View Nextcloud logs
 docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ <command>'  # Run occ commands
 ```
+
+## Tailscale & Komodo Integration
+
+The VPS joins a Tailscale mesh VPN (`tag:vps-external`) for secure private networking with other infrastructure. Komodo Periphery runs as a Docker container for remote container management.
+
+- **Periphery port**: 8120 (bound to Tailscale IP only, not exposed to internet)
+- **Tailscale tag**: `tag:vps-external`
+- **Komodo access**: NAS (`tag:nas`) can reach VPS on port 8120 for container orchestration
+
+To add this server to Komodo Core, register it using its Tailscale hostname or IP on port 8120.
 
 ## Important Notes
 

@@ -43,9 +43,18 @@ MAIL_FROM_ADDRESS = os.environ.get("MAIL_FROM_ADDRESS", "noreply")
 # Reuse the domain from Terraform variables (no need for separate MAIL_DOMAIN)
 DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
 
+# Komodo Periphery configuration
+PERIPHERY_PASSKEY = os.environ.get("PERIPHERY_PASSKEY", "")
+
 MOUNT_POINT = host.get_fact(
     Command,
     "findmnt -n -o TARGET /dev/disk/by-id/scsi-0HC_Volume_* | grep -v '/var/lib/docker'"
+)
+
+# Get Tailscale IP for Periphery binding (empty if Tailscale not running)
+TAILSCALE_IP = host.get_fact(
+    Command,
+    "tailscale ip -4 2>/dev/null || echo ''"
 )
 
 apt.packages(
@@ -89,6 +98,12 @@ server.shell(
         f"mkdir -p {MOUNT_POINT}/redis_data",
         f"mkdir -p {MOUNT_POINT}/clamav_data"
     ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Create Komodo Periphery directory",
+    commands=["mkdir -p /etc/komodo"],
     _sudo=True,
 )
 
@@ -236,6 +251,8 @@ files.template(
         f"MAIL_DOMAIN={DOMAIN}\n"
         f"TURN_SECRET={TURN_SECRET}\n"
         f"SIGNALING_SECRET={SIGNALING_SECRET}\n"
+        f"PERIPHERY_PASSKEY={PERIPHERY_PASSKEY}\n"
+        f"TAILSCALE_IP={TAILSCALE_IP}\n"
     ),
     dest="/opt/nextcloud/.env",
     mode="0600",
