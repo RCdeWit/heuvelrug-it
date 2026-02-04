@@ -1,5 +1,5 @@
 terraform {
-  required_version = "1.9.5"
+  required_version = "1.14.1"
 
   backend "s3" {
     bucket = "heuvelrugterraformstate"
