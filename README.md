@@ -26,6 +26,18 @@ Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud insta
 │  │  └──────────────────────────────────────────────┘   │  │
 │  │                                                     │  │
 │  │  ┌──────────────────────────────────────────────┐   │  │
+│  │  │  Komodo Periphery (Docker)                   │   │  │
+│  │  │  - Container monitoring agent                │   │  │
+│  │  │  - Bound to Tailscale IP only (port 8120)    │   │  │
+│  │  └──────────────────────────────────────────────┘   │  │
+│  │                                                     │  │
+│  │  ┌──────────────────────────────────────────────┐   │  │
+│  │  │  Tailscale (tag:vps-external)                │   │  │
+│  │  │  - Mesh VPN for private networking           │   │  │
+│  │  │  - Allows Komodo Core access from NAS        │   │  │
+│  │  └──────────────────────────────────────────────┘   │  │
+│  │                                                     │  │
+│  │  ┌──────────────────────────────────────────────┐   │  │
 │  │  │  Attached Volume (50 GB)                     │   │  │
 │  │  │  - Nextcloud user data                       │   │  │
 │  │  │  - PostgreSQL database files                 │   │  │
@@ -62,6 +74,10 @@ Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud insta
   - **Redis 7**: Caching and file locking
 - **ClamAV**: Antivirus daemon for file scanning
 - **Restic**: Encrypted, deduplicated backups to Object Storage
+
+### Monitoring & Networking
+- **Tailscale**: Mesh VPN for secure private networking (`tag:vps-external`)
+- **Komodo Periphery**: Docker container monitoring agent (bound to Tailscale IP only)
 
 ### Nextcloud Apps
 
@@ -372,6 +388,48 @@ docker exec nextcloud-backup-1 restic snapshots --last
 ssh deploy@<vps-ip>
 docker exec nextcloud-backup-1 /bin/sh /backup.sh
 ```
+
+### Container Monitoring with Komodo
+
+This deployment includes optional integration with [Komodo](https://komo.do/) for Docker container monitoring and management via Tailscale mesh VPN.
+
+**Architecture:**
+- **Komodo Core**: Runs on your NAS or management server
+- **Komodo Periphery**: Agent running on this VPS, accessible only via Tailscale
+- **Tailscale**: Provides secure private networking between Core and Periphery
+
+**Setup:**
+
+1. Add to your `.env` file:
+   ```bash
+   export TAILSCALE_AUTH_KEY=tskey-auth-xxxxx  # From Tailscale admin console
+   export PERIPHERY_PASSKEY=your-passkey       # Shared secret for Komodo auth
+   ```
+
+2. Deploy Tailscale and Periphery:
+   ```bash
+   uv run pyinfra/configure_vps.py --stage 1-system  # Installs Tailscale
+   uv run pyinfra/configure_vps.py --stage 2-docker  # Deploys Periphery container
+   ```
+
+3. Find the VPS Tailscale address:
+   ```bash
+   ssh deploy@<vps-ip> "tailscale status"
+   # Note the IP (100.x.x.x) or hostname
+   ```
+
+4. Register in Komodo Core:
+   - Add a new server with address: `<tailscale-ip>:8120` or `<tailscale-hostname>:8120`
+   - Use the same passkey configured in `PERIPHERY_PASSKEY`
+
+**Security notes:**
+- Periphery is bound to the Tailscale IP only (not exposed to the internet)
+- Tailscale ACLs should restrict access to port 8120 from your management server only
+- The `komodo.skip: "true"` label prevents Periphery from managing itself
+
+**Without Komodo:**
+
+If you don't use Komodo, simply omit `TAILSCALE_AUTH_KEY` and `PERIPHERY_PASSKEY` from your `.env`. Tailscale won't join the tailnet and Periphery won't start (it falls back to binding to 127.0.0.1).
 
 ### Backup Retention Policy
 
@@ -697,9 +755,10 @@ uv run pyinfra/configure_vps.py --dry
 │   └── hetzner.tf      # Hetzner resources
 ├── pyinfra/            # Configuration management
 │   ├── stages/         # Deployment stages
-│   │   ├── 0-bootstrap.py
-│   │   ├── 1-docker.py
-│   │   └── 2-caddy.py
+│   │   ├── 0-bootstrap.py  # Creates deploy user, SSH setup
+│   │   ├── 1-system.py     # System packages, firewall, Tailscale
+│   │   ├── 2-docker.py     # Docker, Nextcloud stack, Komodo Periphery
+│   │   └── 3-caddy.py      # Reverse proxy configuration
 │   └── configure_vps.py
 ├── vps/                # VPS configuration files
 │   ├── caddy/          # Caddy reverse proxy config
@@ -1106,6 +1165,8 @@ Monthly costs (excluding VAT):
 - UFW firewall configured (only SSH, HTTP, HTTPS exposed)
 - Docker health checks monitor service availability
 - Redis persistence with AOF for data durability
+- Tailscale mesh VPN for secure private networking (monitoring access)
+- Komodo Periphery bound to Tailscale IP only (not internet-accessible)
 
 ### Security Maintenance
 
@@ -1132,6 +1193,7 @@ Monthly costs (excluding VAT):
 - Redis (6379) - Internal Docker network only
 - Nextcloud app (8080) - Localhost only, proxied by Caddy
 - Collabora (9980) - Localhost only, proxied by Caddy
+- Komodo Periphery (8120) - Tailscale IP only, not exposed to internet
 
 **Security best practices implemented:**
 - Least privilege access (deploy user with sudo, not root)
