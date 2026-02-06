@@ -48,6 +48,43 @@ files.template(
 )
 
 # ============================================================================
+# Fail2ban - Brute force protection
+# ============================================================================
+
+apt.packages(
+    name="Install fail2ban",
+    packages=["fail2ban"],
+    _sudo=True,
+)
+
+server.shell(
+    name="Enable and start fail2ban",
+    commands=[
+        "systemctl enable fail2ban",
+        "systemctl start fail2ban",
+    ],
+    _sudo=True,
+)
+
+# ============================================================================
+# Kernel Hardening - Sysctl settings
+# ============================================================================
+
+files.put(
+    name="Deploy kernel hardening sysctl config",
+    src=f"{PROJECT_ROOT}/vps/99-hardening.conf",
+    dest="/etc/sysctl.d/99-hardening.conf",
+    mode="0644",
+    _sudo=True,
+)
+
+server.shell(
+    name="Apply sysctl hardening settings",
+    commands=["sysctl --system"],
+    _sudo=True,
+)
+
+# ============================================================================
 # Tailscale - Mesh VPN for private networking
 # ============================================================================
 
