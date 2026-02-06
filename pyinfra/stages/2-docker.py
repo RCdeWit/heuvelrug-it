@@ -131,6 +131,19 @@ files.template(
 )
 
 server.shell(
+    name="Create Collabora fonts directory",
+    commands=["mkdir -p /opt/nextcloud/collabora/fonts"],
+    _sudo=True,
+)
+
+files.sync(
+    name="Sync Collabora custom fonts",
+    src=f"{PROJECT_ROOT}/vps/collabora/fonts/",
+    dest="/opt/nextcloud/collabora/fonts/",
+    _sudo=True,
+)
+
+server.shell(
     name="Create Nextcloud config directory",
     commands=["mkdir -p /opt/nextcloud/nextcloud"],
     _sudo=True,
