@@ -75,3 +75,10 @@ variable "brevo_dkim_key2" {
   default     = ""
   sensitive   = false
 }
+
+# Tailscale configuration for SSH-only-via-Tailnet
+variable "tailscale_auth_key" {
+  type        = string
+  description = "Tailscale auth key for cloud-init provisioning. Generate at: Tailscale Admin -> Settings -> Keys"
+  sensitive   = true
+}

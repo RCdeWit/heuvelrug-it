@@ -75,8 +75,9 @@ Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud insta
 - **ClamAV**: Antivirus daemon for file scanning
 - **Restic**: Encrypted, deduplicated backups to Object Storage
 
-### Monitoring & Networking
-- **Tailscale**: Mesh VPN for secure private networking (`tag:vps-external`)
+### Networking & Security
+- **Hetzner Firewall**: Blocks SSH from public internet (only HTTP/HTTPS/ICMP/TURN exposed)
+- **Tailscale**: Mesh VPN for SSH access and private networking (`tag:vps-external`)
 - **Komodo Periphery**: Docker container monitoring agent (bound to Tailscale IP only)
 
 ### Nextcloud Apps
@@ -181,6 +182,7 @@ Edit `.env` and fill in all required credentials:
 - SSH public key
 - Generate passwords for PostgreSQL, Redis, Nextcloud, and Restic
 - SMTP credentials for email notifications (see Email Configuration below)
+- Tailscale auth key (required - SSH is only accessible via Tailscale)
 
 **Note**: The S3 bucket name for backups is automatically retrieved from Terraform outputs during deployment. The PyInfra script will construct the S3 endpoint from your configured region (`TF_VAR_hetzner_region`).
 
@@ -231,7 +233,9 @@ terraform init -migrate-state
 terraform plan
 terraform apply
 
-# Note the VPS IP address from outputs
+# Wait ~1-2 minutes for cloud-init to install Tailscale on the VPS
+# Verify VPS joined the Tailnet:
+tailscale status | grep nextcloud
 ```
 
 #### Understanding Terraform State Migration
@@ -332,7 +336,8 @@ uv run pyinfra/configure_vps.py
 
 1. Visit `https://drive.dobbertjeduik.nl`
 2. Log in with Nextcloud admin credentials from `.env`
-3. Check backup service: `ssh deploy@<vps-ip> "docker logs nextcloud-backup-1"`
+3. Get your Tailscale hostname: `cd terraform && terraform output tailnet_hostname`
+4. Check backup service: `ssh deploy@<tailscale-hostname> "docker logs nextcloud-backup-1"`
 
 ## Backup Management
 
@@ -366,7 +371,7 @@ This deployment includes optional integration with healthcheck monitoring servic
 
 ```bash
 # SSH into VPS
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 
 # View backup logs
 docker logs -f nextcloud-backup-1
@@ -385,7 +390,7 @@ docker exec nextcloud-backup-1 restic snapshots --last
 
 ```bash
 # Trigger immediate backup
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 docker exec nextcloud-backup-1 /bin/sh /backup.sh
 ```
 
@@ -402,19 +407,17 @@ This deployment includes optional integration with [Komodo](https://komo.do/) fo
 
 1. Add to your `.env` file:
    ```bash
-   export TAILSCALE_AUTH_KEY=tskey-auth-xxxxx  # From Tailscale admin console
    export PERIPHERY_PASSKEY=your-passkey       # Shared secret for Komodo auth
    ```
 
-2. Deploy Tailscale and Periphery:
+2. Deploy Periphery:
    ```bash
-   uv run pyinfra/configure_vps.py --stage 1-system  # Installs Tailscale
    uv run pyinfra/configure_vps.py --stage 2-docker  # Deploys Periphery container
    ```
 
 3. Find the VPS Tailscale address:
    ```bash
-   ssh deploy@<vps-ip> "tailscale status"
+   ssh deploy@<tailscale-hostname> "tailscale status"
    # Note the IP (100.x.x.x) or hostname
    ```
 
@@ -429,7 +432,7 @@ This deployment includes optional integration with [Komodo](https://komo.do/) fo
 
 **Without Komodo:**
 
-If you don't use Komodo, simply omit `TAILSCALE_AUTH_KEY` and `PERIPHERY_PASSKEY` from your `.env`. Tailscale won't join the tailnet and Periphery won't start (it falls back to binding to 127.0.0.1).
+If you don't use Komodo, simply omit `PERIPHERY_PASSKEY` from your `.env`. Periphery won't start (it falls back to binding to 127.0.0.1). Tailscale is always installed as it's required for SSH access.
 
 ### Backup Retention Policy
 
@@ -449,11 +452,11 @@ Weekly integrity checks run automatically every Sunday.
 The easiest way to restore backups is using the automated restore utility. Run it locally and it will connect to your VPS via SSH:
 
 ```bash
-# Run the restore utility (from your local machine)
-./restore.sh <vps-ip-address>
+# Run the restore utility (from your local machine, via Tailscale hostname)
+./restore.sh <tailscale-hostname>
 
-# Example (use IP address, not hostname)
-./restore.sh 123.45.67.89
+# Example
+./restore.sh heuvelrug-43275f-nextcloud
 ```
 
 The utility provides an interactive menu with the following options:
@@ -600,12 +603,15 @@ source .env
 cd terraform
 terraform apply
 
+# Wait ~1-2 minutes for cloud-init to install Tailscale
+tailscale status | grep nextcloud
+
 # 2. Deploy base configuration (~15 minutes)
 cd ..
 uv run pyinfra/configure_vps.py --fresh
 
 # 3. Stop Nextcloud services (~1 minute)
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 cd /opt/nextcloud
 docker compose down
 
@@ -641,7 +647,7 @@ docker exec nextcloud-nextcloud-1 \
 
 ```bash
 # SSH into VPS
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 
 # Pull latest image
 cd /opt/nextcloud
@@ -658,7 +664,7 @@ docker compose up -d nextcloud
 uv run pyinfra/configure_vps.py
 
 # Or manually on VPS
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 sudo apt update && sudo apt upgrade -y
 ```
 
@@ -666,10 +672,10 @@ sudo apt update && sudo apt upgrade -y
 
 ```bash
 # Check volume usage
-ssh deploy@<vps-ip> df -h
+ssh deploy@<tailscale-hostname> df -h
 
 # Check Docker disk usage
-ssh deploy@<vps-ip> docker system df
+ssh deploy@<tailscale-hostname> docker system df
 
 # Check Nextcloud storage usage
 # Visit: Settings > Administration > System
@@ -679,7 +685,7 @@ ssh deploy@<vps-ip> docker system df
 
 ```bash
 # All services status
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 docker ps
 docker compose -f /opt/nextcloud/docker-compose.yml ps
 
@@ -914,7 +920,7 @@ docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html
 Minor updates are straightforward and safe:
 
 ```bash
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 cd /opt/nextcloud
 sudo docker compose pull nextcloud
 sudo docker compose up -d nextcloud
@@ -933,7 +939,7 @@ Major version updates require careful planning:
 2. **Check app compatibility** - some apps may not support the new version yet
 3. **Backup before upgrade**:
    ```bash
-   ssh deploy@<vps-ip>
+   ssh deploy@<tailscale-hostname>
    docker exec nextcloud-backup-1 /bin/sh /backup.sh
    ```
 
@@ -951,7 +957,7 @@ Major version updates require careful planning:
 
 3. Run maintenance commands:
    ```bash
-   ssh deploy@<vps-ip>
+   ssh deploy@<tailscale-hostname>
    docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
      'php /var/www/html/occ maintenance:repair'
    docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
@@ -1090,7 +1096,7 @@ terraform apply  # Hetzner resizes the volume instantly
 
 **3. Resize filesystem on VPS:**
 ```bash
-ssh deploy@<vps-ip>
+ssh deploy@<tailscale-hostname>
 # Find the volume device
 DEVICE=$(findmnt -n -o SOURCE /mnt/HC_Volume_* | head -1)
 sudo resize2fs $DEVICE
@@ -1103,16 +1109,16 @@ df -h  # Verify new size
 
 ```bash
 # Check CPU and memory usage
-ssh deploy@<vps-ip> htop
+ssh deploy@<tailscale-hostname> htop
 
 # Check disk usage
-ssh deploy@<vps-ip> df -h
+ssh deploy@<tailscale-hostname> df -h
 
 # Check Docker resource usage
-ssh deploy@<vps-ip> docker stats
+ssh deploy@<tailscale-hostname> docker stats
 
 # Check per-service resource usage
-ssh deploy@<vps-ip> docker stats --no-stream --format \
+ssh deploy@<tailscale-hostname> docker stats --no-stream --format \
   "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
 ```
 
@@ -1162,7 +1168,8 @@ Monthly costs (excluding VAT):
 - Passwords generated with `openssl rand -base64 32`
 - SSH key-based authentication only (no password auth)
 - PostgreSQL and Redis not exposed externally
-- UFW firewall configured (only SSH, HTTP, HTTPS exposed)
+- Hetzner Cloud firewall blocks SSH from public internet (Tailscale-only access)
+- UFW firewall configured (SSH only accessible via Tailscale)
 - Docker health checks monitor service availability
 - Redis persistence with AOF for data durability
 - Tailscale mesh VPN for secure private networking (monitoring access)
@@ -1172,7 +1179,7 @@ Monthly costs (excluding VAT):
 
 **Monthly tasks:**
 - Update Nextcloud: `docker compose pull && docker compose up -d`
-- Update system: `ssh deploy@vps "sudo apt update && sudo apt upgrade -y"`
+- Update system: `ssh deploy@<tailscale-hostname> "sudo apt update && sudo apt upgrade -y"`
 - Review access logs: `docker logs nextcloud-nextcloud-1 | grep -E "ERROR|WARN"`
 - Check Nextcloud admin overview for security warnings
 
@@ -1180,13 +1187,14 @@ Monthly costs (excluding VAT):
 - Subscribe to [Nextcloud security advisories](https://nextcloud.com/security/advisories/)
 - Monitor [Hetzner status page](https://status.hetzner.com/)
 - Review backup health weekly via Healthchecks.io
-- Consider adding fail2ban for SSH brute-force protection (optional)
+- fail2ban is installed for additional brute-force protection
 
 ### Attack Surface
 
 **Exposed services:**
-- Port 22 (SSH) - Key authentication only, no passwords
 - Port 80/443 (HTTP/HTTPS) - Behind Caddy reverse proxy with automatic HTTPS
+- Port 3478/UDP (TURN) - For Nextcloud Talk NAT traversal
+- Port 22 (SSH) - Blocked by Hetzner firewall; only accessible via Tailscale mesh VPN
 
 **Not exposed (internal only):**
 - PostgreSQL (5432) - Internal Docker network only

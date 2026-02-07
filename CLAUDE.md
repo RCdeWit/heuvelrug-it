@@ -65,7 +65,7 @@ uv run pyinfra/configure_vps.py --dry  # Dry run PyInfra (doesn't exist yet - us
 - **Docker Compose** for services (Nextcloud, PostgreSQL, Redis, Collabora, ClamAV)
 - **Caddy** for reverse proxy with automatic HTTPS
 - **Restic** for encrypted backups to Hetzner Object Storage
-- **Tailscale** for mesh VPN (private networking with other infrastructure)
+- **Tailscale** for mesh VPN (SSH access and private networking - public SSH is blocked)
 - **Komodo Periphery** for Docker container monitoring/management
 
 ## Environment Variables
@@ -77,7 +77,8 @@ All secrets and configuration are in `.env` (see `.env.example` for template). K
 - `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `NEXTCLOUD_ADMIN_PASSWORD`
 - `RESTIC_PASSWORD` - Backup encryption password
 - `SMTP_*` - Email configuration (Brevo)
-- `TAILSCALE_AUTH_KEY` - Auth key for joining tailnet (optional, can auth manually)
+- `TF_VAR_tailscale_auth_key` - Auth key for cloud-init Tailscale provisioning (required)
+- `TAILSCALE_AUTH_KEY` - Auth key for PyInfra Tailscale configuration
 - `PERIPHERY_PASSKEY` - Passkey for Komodo Periphery agent authentication
 
 ## PyInfra Stages
@@ -98,18 +99,26 @@ Stages run in order (0→3). Stage 0 only runs with `--fresh`:
 
 ## VPS Access
 
+SSH is only accessible via Tailscale (public SSH is blocked by Hetzner firewall). The Tailscale hostname is auto-detected from Terraform output.
+
 ```bash
-ssh deploy@<vps-ip>                    # SSH to VPS
+ssh deploy@$(cd terraform && terraform output -raw tailnet_hostname)  # SSH to VPS
 docker logs nextcloud-nextcloud-1      # View Nextcloud logs
 docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ <command>'  # Run occ commands
 ```
 
-## Tailscale & Komodo Integration
+## Network Security
 
-The VPS joins a Tailscale mesh VPN (`tag:vps-external`) for secure private networking with other infrastructure. Komodo Periphery runs as a Docker container for remote container management.
+- **Hetzner Firewall**: Blocks SSH (port 22) from public internet; only HTTP/HTTPS/ICMP/TURN allowed
+- **Tailscale**: Provides SSH access via mesh VPN (`tag:vps-external`)
+- **UFW**: Host firewall allows OpenSSH (accessible only via Tailscale)
+- **Cloud-init**: Tailscale is installed during VPS provisioning, before any SSH-based deployment
+
+## Komodo Integration
+
+Komodo Periphery runs as a Docker container for remote container management.
 
 - **Periphery port**: 8120 (bound to Tailscale IP only, not exposed to internet)
-- **Tailscale tag**: `tag:vps-external`
 - **Komodo access**: NAS (`tag:nas`) can reach VPS on port 8120 for container orchestration
 
 To add this server to Komodo Core, register it using its Tailscale hostname or IP on port 8120.
@@ -120,3 +129,4 @@ To add this server to Komodo Core, register it using its Tailscale hostname or I
 - Run `source .env` before Terraform commands
 - Use `--fresh` flag only for initial deployment or to recreate deploy user
 - Terraform backend requires manual S3 bucket creation before first use
+- After `terraform apply` for a new VPS, wait ~1-2 min for cloud-init (Tailscale) before running PyInfra

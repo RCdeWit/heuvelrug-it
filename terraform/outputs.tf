@@ -27,6 +27,16 @@ output "project_prefix" {
   value       = "${var.project_name}-${random_id.suffix.hex}"
 }
 
+output "random_suffix" {
+  description = "Random suffix used in resource names"
+  value       = random_id.suffix.hex
+}
+
+output "tailnet_hostname" {
+  description = "Tailscale hostname for SSH access (set VPS_TAILNET_HOSTNAME to this)"
+  value       = "${var.project_name}-${random_id.suffix.hex}-nextcloud"
+}
+
 output "s3_access_key" {
   description = "S3 access key"
   value       = var.hetzner_s3_access_key
