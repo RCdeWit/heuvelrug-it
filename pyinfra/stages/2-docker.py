@@ -166,6 +166,15 @@ files.put(
     _sudo=True,
 )
 
+# Komodo Periphery - Allow port 8120 on Tailscale interface only
+server.shell(
+    name="Allow Komodo Periphery port through firewall (Tailscale only)",
+    commands=[
+        "ufw allow in on tailscale0 to any port 8120 proto tcp comment 'Komodo Periphery (Tailscale only)'",
+    ],
+    _sudo=True,
+)
+
 # Nextcloud Talk - Firewall rules for TURN/STUN
 server.shell(
     name="Allow TURN/STUN ports through firewall",
