@@ -1,5 +1,4 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "timezone": "Europe/Amsterdam",
   "schedule": ["before 9am on Monday"],
@@ -10,61 +9,61 @@
     {
       "customType": "regex",
       "description": "Docker images in Jinja2 template",
-      "fileMatch": ["vps/docker/nextcloud\\.yml\\.j2$"],
+      "managerFilePatterns": ["/vps/docker/nextcloud\\.yml\\.j2$/"],
       "matchStrings": [
         "image:\\s*(?<depName>[^:]+):(?<currentValue>[\\d.]+)(?:-alpine)?\\s"
       ],
-      "datasource": "docker"
+      "datasourceTemplate": "docker"
     },
     {
       "customType": "regex",
       "description": "Go version in .env.example",
-      "fileMatch": ["^\\.env\\.example$"],
+      "managerFilePatterns": ["/^\\.env\\.example$/"],
       "matchStrings": [
         "GO_VERSION=(?<currentValue>[\\d.]+)"
       ],
-      "depName": "golang",
-      "datasource": "docker"
+      "depNameTemplate": "golang",
+      "datasourceTemplate": "docker"
     },
     {
       "customType": "regex",
       "description": "Go version in pyinfra caddy script",
-      "fileMatch": ["pyinfra/stages/.*\\.py$"],
+      "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
       "matchStrings": [
         "GO_VERSION.*?[\"'](?<currentValue>[\\d.]+)[\"']"
       ],
-      "depName": "golang",
-      "datasource": "docker"
+      "depNameTemplate": "golang",
+      "datasourceTemplate": "docker"
     },
     {
       "customType": "regex",
       "description": "xcaddy version",
-      "fileMatch": ["pyinfra/stages/.*\\.py$"],
+      "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
       "matchStrings": [
         "xcaddy/releases/download/v(?<currentValue>[\\d.]+)/"
       ],
-      "depName": "caddyserver/xcaddy",
-      "datasource": "github-releases"
+      "depNameTemplate": "caddyserver/xcaddy",
+      "datasourceTemplate": "github-releases"
     },
     {
       "customType": "regex",
       "description": "caddy-dns/hetzner version",
-      "fileMatch": ["pyinfra/stages/.*\\.py$"],
+      "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
       "matchStrings": [
         "caddy-dns/hetzner/v2@(?<currentValue>v[\\d.]+[\\w-]*)"
       ],
-      "depName": "caddy-dns/hetzner",
-      "datasource": "github-releases"
+      "depNameTemplate": "caddy-dns/hetzner",
+      "datasourceTemplate": "github-releases"
     },
     {
       "customType": "regex",
       "description": "Terraform required version",
-      "fileMatch": ["terraform/.*\\.tf$"],
+      "managerFilePatterns": ["/terraform/.*\\.tf$/"],
       "matchStrings": [
         "required_version\\s*=\\s*\"(?<currentValue>[\\d.]+)\""
       ],
-      "depName": "hashicorp/terraform",
-      "datasource": "github-releases"
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases"
     }
   ],
   "packageRules": [
