@@ -9,7 +9,7 @@ from utils.find_project_root import find_project_root
 PROJECT_ROOT = find_project_root()
 HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
 DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
-GO_VERSION = os.environ.get("GO_VERSION", "1.23.4")
+GO_VERSION = os.environ.get("GO_VERSION", "1.26.0")
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
