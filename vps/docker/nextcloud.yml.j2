@@ -40,7 +40,7 @@ services:
       retries: 3
 
   nextcloud:
-    image: nextcloud:32.0.5
+    image: nextcloud:32.0.6
     restart: always
     depends_on:
       - nextcloud-db
@@ -107,7 +107,7 @@ services:
       - seccomp:unconfined
 
   nextcloud-cron:
-    image: nextcloud:32.0.5
+    image: nextcloud:32.0.6
     restart: always
     depends_on:
       - nextcloud
@@ -129,7 +129,7 @@ services:
   # Client Push daemon - provides real-time updates to desktop/mobile clients
   # Replaces polling with efficient push notifications via WebSocket
   notify_push:
-    image: nextcloud:32.0.5
+    image: nextcloud:32.0.6
     restart: always
     # Run as www-data (uid 33) to match file ownership from nextcloud container
     user: "33:33"
