@@ -115,6 +115,13 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable notify_push' || tr
     done
 ) &
 
+# Install two-factor authentication providers
+echo "Installing TOTP two-factor authentication..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install twofactor_totp' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable twofactor_totp' || true
+# Enable bundled backup codes app
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable twofactor_backupcodes' || true
+
 # Install Audit Log for tracking user activity
 echo "Installing Audit Log..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install admin_audit' 2>/dev/null || true
