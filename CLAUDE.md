@@ -25,10 +25,19 @@ Infrastructure-as-code (IaC) for a self-hosted Nextcloud instance. Uses **Terraf
 │   └── nextcloud/      # Nextcloud scripts (entrypoint, backup)
 ├── restore.sh          # Backup restoration utility
 ├── bump.sh             # Version bump script
-└── .env                # Environment variables (gitignored)
+├── .env.1password      # 1Password template for environment variables (committed)
+├── .env.example        # Human-readable reference with documentation
+└── .env                # Resolved local file (gitignored, generated via op inject)
 ```
 
 ## Common Commands
+
+### Environment Setup
+
+```bash
+op inject -i .env.1password -o .env   # Generate .env from 1Password
+source .env                           # Load environment variables
+```
 
 ### Terraform (Infrastructure)
 
@@ -70,16 +79,19 @@ uv run pyinfra/configure_vps.py --dry  # Dry run PyInfra (doesn't exist yet - us
 
 ## Environment Variables
 
-All secrets and configuration are in `.env` (see `.env.example` for template). Key variables:
-- `HCLOUD_TOKEN` - Hetzner Cloud API token
-- `TF_VAR_*` - Terraform variables
-- `AWS_*` - S3 credentials for Object Storage
-- `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `NEXTCLOUD_ADMIN_PASSWORD`
-- `RESTIC_PASSWORD` - Backup encryption password
-- `SMTP_*` - Email configuration (Brevo)
-- `TF_VAR_tailscale_auth_key` - Auth key for cloud-init Tailscale provisioning (required)
-- `TAILSCALE_AUTH_KEY` - Auth key for PyInfra Tailscale configuration
-- `PERIPHERY_PASSKEY` - Passkey for Komodo Periphery agent authentication
+Secrets are stored in 1Password (Vault: `Infra`, Item: `GitHub.RCdeWit.heuvelrug-it`) and managed via two files:
+
+- **`.env.1password`** - Template with `op://` references; committed to the repo
+- **`.env`** - Resolved local file; gitignored, generated via `op inject`
+
+To set up locally:
+
+```bash
+op inject -i .env.1password -o .env
+source .env
+```
+
+See `.env.example` for full documentation of each variable.
 
 ## PyInfra Stages
 
