@@ -35,7 +35,15 @@ def run_pyinfra(script_name, ssh_user=None, auto_approve=False):
     print()
     subprocess.run(command, cwd=STAGES_DIR, env=env, check=True)
 
+def check_env():
+    # Spot-check a required variable as a proxy for whether .env has been sourced
+    if not os.getenv("POSTGRES_PASSWORD"):
+        print("Error: environment variables not set. Did you forget to source your .env?")
+        print("  op inject -i .env.1password -o .env && source .env")
+        raise SystemExit(1)
+
 def main():
+    check_env()
     parser = argparse.ArgumentParser(description="Deploy reverse proxy stack")
     parser.add_argument("--fresh", action="store_true", help="Run full deployment including bootstrap setup")
     parser.add_argument("--auto-approve", action="store_true", help="Skip verification steps and automatically approve changes")
