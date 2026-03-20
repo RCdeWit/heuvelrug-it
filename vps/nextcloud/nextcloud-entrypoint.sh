@@ -127,6 +127,11 @@ echo "Installing Audit Log..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install admin_audit' 2>/dev/null || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable admin_audit' || true
 
+# Install Forms for surveys and questionnaires
+echo "Installing Forms..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install forms' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable forms' || true
+
 # Install Antivirus for Files (uses ClamAV daemon)
 echo "Installing Antivirus for Files..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install files_antivirus' 2>/dev/null || true
