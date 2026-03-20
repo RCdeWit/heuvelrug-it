@@ -78,6 +78,22 @@ apt.packages(
     _sudo=True,
 )
 
+files.put(
+    name="Configure Docker daemon (disable inherited DNS search domains)",
+    # Prevents Tailscale's search domain from being injected into containers,
+    # which would break inter-container DNS resolution (e.g. nextcloud -> nextcloud-db)
+    src=StringIO('{"dns-search": ["."]}\n'),
+    dest="/etc/docker/daemon.json",
+    mode="0644",
+    _sudo=True,
+)
+
+server.shell(
+    name="Restart Docker daemon to apply config",
+    commands=["systemctl restart docker"],
+    _sudo=True,
+)
+
 #
 # Deploy Nextcloud All-In-One (AIO)
 #
