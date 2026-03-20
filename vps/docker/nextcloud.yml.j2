@@ -297,6 +297,14 @@ services:
       # Bind to Tailscale IP only - set TAILSCALE_IP in .env
       - "${TAILSCALE_IP:-127.0.0.1}:8120:8120"
 
+networks:
+  default:
+    ipam:
+      config:
+        # Pinned subnet so coturn's allowed-peer-ip exception in turnserver.conf
+        # (172.18.0.0/16) stays valid across stack recreations
+        - subnet: 172.18.0.0/16
+
 volumes:
   nextcloud_db:
     driver: local
