@@ -132,6 +132,24 @@ echo "Installing Forms..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install forms' 2>/dev/null || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable forms' || true
 
+# Install Contacts and Calendar
+echo "Installing Contacts..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install contacts' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable contacts' || true
+echo "Installing Calendar..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install calendar' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable calendar' || true
+
+# Install Whiteboard for collaborative drawing
+echo "Installing Whiteboard..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install whiteboard' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable whiteboard' || true
+
+# Install Team Folders for shared group folders
+echo "Installing Team Folders..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install groupfolders' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable groupfolders' || true
+
 # Install Antivirus for Files (uses ClamAV daemon)
 echo "Installing Antivirus for Files..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install files_antivirus' 2>/dev/null || true
