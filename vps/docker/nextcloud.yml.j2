@@ -76,6 +76,8 @@ services:
       # Nextcloud Talk configuration (for entrypoint script)
       TURN_SECRET: ${TURN_SECRET}
       SIGNALING_SECRET: ${SIGNALING_SECRET}
+      # Whiteboard JWT secret (shared with whiteboard service)
+      WHITEBOARD_JWT_SECRET: ${WHITEBOARD_JWT_SECRET}
     ports:
       - 8080:80
     healthcheck:
@@ -105,6 +107,18 @@ services:
     security_opt:
       - apparmor:unconfined
       - seccomp:unconfined
+
+  # Whiteboard WebSocket server - required for real-time collaborative drawing
+  whiteboard:
+    image: ghcr.io/nextcloud-releases/whiteboard:release
+    restart: always
+    depends_on:
+      - nextcloud
+    environment:
+      NEXTCLOUD_URL: https://drive.{{ domain }}
+      JWT_SECRET_KEY: ${WHITEBOARD_JWT_SECRET}
+    ports:
+      - 3002:3002
 
   nextcloud-cron:
     image: nextcloud:33.0.0

@@ -32,6 +32,9 @@ SIGNALING_BLOCKKEY = os.environ.get("SIGNALING_BLOCKKEY", "")
 JANUS_ADMIN_SECRET = os.environ.get("JANUS_ADMIN_SECRET", "")
 JANUS_TURN_PASSWORD = os.environ.get("JANUS_TURN_PASSWORD", "")
 
+# Whiteboard configuration
+WHITEBOARD_JWT_SECRET = os.environ.get("WHITEBOARD_JWT_SECRET", "")
+
 # SMTP configuration (using official Nextcloud Docker env var names)
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp-relay.brevo.com")
 SMTP_PORT = os.environ.get("SMTP_PORT", "587")
@@ -289,6 +292,7 @@ files.template(
         f"MAIL_DOMAIN={DOMAIN}\n"
         f"TURN_SECRET={TURN_SECRET}\n"
         f"SIGNALING_SECRET={SIGNALING_SECRET}\n"
+        f"WHITEBOARD_JWT_SECRET={WHITEBOARD_JWT_SECRET}\n"
         f"PERIPHERY_PASSKEY={PERIPHERY_PASSKEY}\n"
         f"TAILSCALE_IP={TAILSCALE_IP}\n"
     ),

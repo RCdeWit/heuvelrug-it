@@ -144,6 +144,14 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable calendar' || true
 echo "Installing Whiteboard..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install whiteboard' 2>/dev/null || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable whiteboard' || true
+# Configure whiteboard to use dedicated WebSocket server
+if [ -n "${WHITEBOARD_JWT_SECRET}" ]; then
+    echo "Configuring Whiteboard server..."
+    su -s /bin/bash www-data -c "php /var/www/html/occ config:app:set whiteboard collabBackendUrl --value='https://whiteboard.{{ domain }}'" || true
+    su -s /bin/bash www-data -c "php /var/www/html/occ config:app:set whiteboard jwt_secret_key --value='${WHITEBOARD_JWT_SECRET}'" || true
+else
+    echo "WARNING: WHITEBOARD_JWT_SECRET is not set - real-time collaboration will not work!"
+fi
 
 # Install Team Folders for shared group folders
 echo "Installing Team Folders..."

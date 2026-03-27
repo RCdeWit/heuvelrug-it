@@ -46,6 +46,25 @@ healthcheck.{{ domain }} {
     respond "OK" 200
 }
 
+# Nextcloud Whiteboard WebSocket server
+whiteboard.{{ domain }} {
+    tls {
+        dns hetzner {env.HETZNER_API_TOKEN}
+        resolvers 8.8.8.8:53 1.1.1.1:53
+    }
+
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    reverse_proxy http://localhost:3002 {
+        # Flush immediately for WebSocket connections
+        flush_interval -1
+        transport http {
+            read_timeout 3600s
+            write_timeout 3600s
+        }
+    }
+}
+
 # Nextcloud Talk High Performance Backend (signaling server)
 signaling.{{ domain }} {
     tls {

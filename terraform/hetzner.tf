@@ -200,6 +200,17 @@ resource "hcloud_zone_rrset" "dmarc" {
   ]
 }
 
+# Nextcloud Whiteboard WebSocket server
+resource "hcloud_zone_rrset" "whiteboard" {
+  zone    = hcloud_zone.domain.name
+  name    = "whiteboard"
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.drive_instance.ipv4_address }
+  ]
+}
+
 # Nextcloud Talk - DNS records for video conferencing components
 
 # TURN server - points to main server (coturn runs on host network)
