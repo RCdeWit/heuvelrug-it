@@ -63,6 +63,10 @@ resource "hcloud_server" "drive_instance" {
   ssh_keys     = [hcloud_ssh_key.main.id]
   firewall_ids = [hcloud_firewall.nextcloud.id]
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   # Cloud-init: Install Tailscale before any SSH-based provisioning
   user_data = <<-EOF
     #!/bin/bash
@@ -93,6 +97,10 @@ resource "hcloud_volume" "volume1" {
   server_id = hcloud_server.drive_instance.id
   automount = true
   format    = "ext4"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "hcloud_zone" "domain" {
