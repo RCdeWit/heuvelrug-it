@@ -1,58 +1,75 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "[$(date)] Starting Nextcloud backup..."
+# ── Colors (auto-disabled when stdout is not a terminal, e.g. cron log) ───────
+if [ -t 1 ]; then
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+    CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
+else
+    RED=''; GREEN=''; YELLOW=''; CYAN=''; BOLD=''; DIM=''; RESET=''
+fi
 
-# Backup configuration
+ts()        { date '+%H:%M:%S'; }
+log_step()  { printf "${CYAN}[%s]${RESET} %s\n" "$(ts)" "$1"; }
+log_ok()    { printf "${GREEN}[%s] ✓ %s${RESET}\n" "$(ts)" "$1"; }
+log_warn()  { printf "${YELLOW}[%s] ⚠ %s${RESET}\n" "$(ts)" "$1"; }
+log_error() { printf "${RED}[%s] ✗ %s${RESET}\n" "$(ts)" "$1" >&2; }
+
+# ── Configuration ─────────────────────────────────────────────────────────────
 BACKUP_DIR="/backup"
 DB_BACKUP_FILE="${BACKUP_DIR}/nextcloud_db.sql"
-# Use RESTIC_REPOSITORY if set, otherwise construct from endpoint and bucket
 RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}}"
-# Healthcheck URL (optional)
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
+NEXTCLOUD_CONTAINER="nextcloud-nextcloud-1"
+DB_CONTAINER="nextcloud-nextcloud-db-1"
 
-# Function to ping healthcheck on failure
+START_TIME=$(date +%s)
+
+# ── Header ────────────────────────────────────────────────────────────────────
+printf "\n${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n"
+printf "${BOLD}  🗄️  Nextcloud Backup${RESET}  ${DIM}$(date '+%Y-%m-%d')${RESET}\n"
+printf "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n\n"
+
+# ── Healthcheck failure ping ──────────────────────────────────────────────────
 ping_failure() {
     if [ -n "$HEALTHCHECK_URL" ]; then
         curl -fsS --retry 3 --max-time 10 "${HEALTHCHECK_URL}/fail" > /dev/null 2>&1 || true
     fi
 }
 
-# Trap to ping failure on any exit with non-zero status
 trap 'if [ $? -ne 0 ]; then ping_failure; fi' EXIT
 
-# Create backup directory if it doesn't exist
 mkdir -p "${BACKUP_DIR}"
 
-# Initialize Restic repository if it doesn't exist
-echo "[$(date)] Checking Restic repository..."
-if ! restic -r "${RESTIC_REPO}" snapshots &>/dev/null; then
-    echo "[$(date)] Initializing Restic repository..."
+# ── Restic repository ─────────────────────────────────────────────────────────
+log_step "Checking restic repository..."
+if ! restic -r "${RESTIC_REPO}" cat config &>/dev/null; then
+    log_step "Initializing restic repository..."
     restic -r "${RESTIC_REPO}" init
+    log_ok "Repository initialized"
+else
+    log_ok "Repository ready"
 fi
 
-# Container names (from docker-compose project "nextcloud")
-NEXTCLOUD_CONTAINER="nextcloud-nextcloud-1"
-DB_CONTAINER="nextcloud-nextcloud-db-1"
-
-# Enable Nextcloud maintenance mode
-echo "[$(date)] Enabling Nextcloud maintenance mode..."
+# ── Maintenance mode ──────────────────────────────────────────────────────────
+log_step "Enabling maintenance mode..."
 if ! docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
-    echo "[$(date)] ERROR: Failed to enable maintenance mode. Aborting backup."
+    log_error "Failed to enable maintenance mode — aborting"
     exit 1
 fi
+log_ok "Maintenance mode enabled"
 
-# Dump PostgreSQL database
-echo "[$(date)] Dumping PostgreSQL database..."
+# ── Database dump ─────────────────────────────────────────────────────────────
+log_step "Dumping PostgreSQL database..."
 if ! docker exec "$DB_CONTAINER" pg_dump -U nextcloud -d nextcloud > "${DB_BACKUP_FILE}"; then
-    echo "[$(date)] ERROR: Database dump failed!"
-    # Disable maintenance mode before exiting
+    log_error "Database dump failed"
     docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
     exit 1
 fi
+log_ok "Database dumped"
 
-# Backup with Restic
-echo "[$(date)] Running Restic backup..."
+# ── Restic backup ─────────────────────────────────────────────────────────────
+log_step "Running restic backup..."
 if ! restic -r "${RESTIC_REPO}" backup \
     --tag nextcloud \
     --tag daily \
@@ -61,44 +78,54 @@ if ! restic -r "${RESTIC_REPO}" backup \
     /mnt/data/nextcloud_data \
     /mnt/data/ncdata \
     /mnt/data/redis_data; then
-    echo "[$(date)] ERROR: Backup failed!"
-    # Disable maintenance mode before exiting
+    log_error "Restic backup failed"
     docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
     exit 1
 fi
+log_ok "Backup complete"
 
-# Disable Nextcloud maintenance mode
-echo "[$(date)] Disabling Nextcloud maintenance mode..."
+# ── Maintenance mode off ──────────────────────────────────────────────────────
+log_step "Disabling maintenance mode..."
 docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off' || true
+log_ok "Maintenance mode disabled"
 
-# Prune old backups
-echo "[$(date)] Pruning old backups..."
+# ── Prune ─────────────────────────────────────────────────────────────────────
+log_step "Pruning old snapshots..."
 restic -r "${RESTIC_REPO}" forget \
     --keep-daily ${BACKUP_RETENTION_DAYS} \
     --keep-weekly 52 \
     --keep-monthly 24 \
     --prune
+log_ok "Pruning complete"
 
-# Check repository integrity (weekly on Sundays)
+# ── Integrity check (Sundays only) ───────────────────────────────────────────
 if [ "$(date +%u)" -eq 7 ]; then
-    echo "[$(date)] Running repository integrity check..."
+    log_step "Running integrity check..."
     restic -r "${RESTIC_REPO}" check
+    log_ok "Integrity check passed"
 fi
 
-# Clean up database dump
 rm -f "${DB_BACKUP_FILE}"
 
-echo "[$(date)] Backup completed successfully!"
-
-# Show repository stats
+# ── Repository stats ──────────────────────────────────────────────────────────
+log_step "Repository stats:"
 restic -r "${RESTIC_REPO}" stats --mode restore-size
 
-# Ping healthcheck service if URL is configured
+# ── Footer ────────────────────────────────────────────────────────────────────
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+MINUTES=$((DURATION / 60))
+SECONDS=$((DURATION % 60))
+
+printf "\n${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n"
+printf "${GREEN}${BOLD}  ✅ Backup completed successfully${RESET}  ${DIM}${MINUTES}m ${SECONDS}s${RESET}\n"
+printf "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n\n"
+
+# ── Healthcheck success ping ──────────────────────────────────────────────────
 if [ -n "$HEALTHCHECK_URL" ]; then
-    echo "[$(date)] Pinging healthcheck service..."
     if curl -fsS --retry 3 --max-time 10 "$HEALTHCHECK_URL" > /dev/null 2>&1; then
-        echo "[$(date)] Healthcheck ping successful"
+        log_ok "Healthcheck pinged"
     else
-        echo "[$(date)] WARNING: Healthcheck ping failed (non-fatal)"
+        log_warn "Healthcheck ping failed (non-fatal)"
     fi
 fi
