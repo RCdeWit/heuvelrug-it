@@ -1,376 +1,351 @@
-# GL/PvdA Heuvelrug IT
+# PRO Heuvelrug IT
 
-Infrastructure-as-code (IaC) for GL/PvdA Heuvelrug's self-hosted Nextcloud instance. Uses Terraform for provisioning cloud resources on Hetzner and PyInfra for configuration management.
+Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance. Uses Terraform for provisioning cloud resources on Hetzner and PyInfra for configuration management.
+
+> [!NOTE]
+> This repository is provided as-is. Documentation is maintained on a best-effort basis. If you'd prefer a fully managed deployment, reach out to [rob@binary3.dev](mailto:rob@binary3.dev). I'm happy to provide this to PRO members at a steep discount. 💚❤️
 
 ## Architecture
 
 ```text
-┌───────────────────────────────────────────────────────────┐
-│ Hetzner Cloud (Nuremberg - nbg1)                          │
-│                                                           │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │ VPS (cpx32 - Ubuntu 24.04)                          │  │
-│  │                                                     │  │
-│  │  ┌─────────────┐      ┌──────────────────────────┐  │  │
-│  │  │   Caddy     │─────▶│  Nextcloud (Docker)      │  │  │
-│  │  │  (HTTPS)    │      │  - Web Application       │  │  │
-│  │  └─────────────┘      │  - PostgreSQL Database   │  │  │
-│  │                       │  - Redis Cache           │  │  │
-│  │                       └──────────────────────────┘  │  │
-│  │                                                     │  │
-│  │  ┌──────────────────────────────────────────────┐   │  │
-│  │  │  Backup Service (Docker)                     │   │  │
-│  │  │  - Restic backups (daily 2 AM)               │   │  │
-│  │  │  - Database dumps                            │   │  │
-│  │  │  - Encrypted, deduplicated                   │   │  │
-│  │  └──────────────────────────────────────────────┘   │  │
-│  │                                                     │  │
-│  │  ┌──────────────────────────────────────────────┐   │  │
-│  │  │  Komodo Periphery (Docker)                   │   │  │
-│  │  │  - Container monitoring agent                │   │  │
-│  │  │  - Bound to Tailscale IP only (port 8120)    │   │  │
-│  │  └──────────────────────────────────────────────┘   │  │
-│  │                                                     │  │
-│  │  ┌──────────────────────────────────────────────┐   │  │
-│  │  │  Tailscale (tag:vps-external)                │   │  │
-│  │  │  - Mesh VPN for private networking           │   │  │
-│  │  │  - Allows Komodo Core access from NAS        │   │  │
-│  │  └──────────────────────────────────────────────┘   │  │
-│  │                                                     │  │
-│  │  ┌──────────────────────────────────────────────┐   │  │
-│  │  │  Attached Volume (50 GB)                     │   │  │
-│  │  │  - Nextcloud user data                       │   │  │
-│  │  │  - PostgreSQL database files                 │   │  │
-│  │  │  - Application files                         │   │  │
-│  │  └──────────────────────────────────────────────┘   │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                           │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │ Object Storage (S3-compatible)                      │  │
-│  │  - Terraform state (heuvelrugterraformstate)        │  │
-│  │  - Nextcloud backups (nextcloud-backups)            │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                           │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │ DNS (dobbertjeduik.nl)                              │  │
-│  │  - drive.dobbertjeduik.nl → VPS                     │  │
-│  │  - healthcheck.dobbertjeduik.nl → VPS               │  │
-│  └─────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Hetzner Cloud (Nuremberg - nbg1)                                 │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ VPS (cpx42 - Ubuntu 24.04)                                 │  │
+│  │                                                            │  │
+│  │  ┌──────────┐   ┌─────────────────────────────────────┐    │  │
+│  │  │  Caddy   │──▶│  Nextcloud                          │    │  │
+│  │  │ (HTTPS)  │   │  - PostgreSQL 15  (database)        │    │  │
+│  │  └──────────┘   │  - Redis 7        (cache/locking)   │    │  │
+│  │       │         └─────────────────────────────────────┘    │  │
+│  │       ├────────▶ Collabora Online   (document editing)     │  │
+│  │       ├────────▶ Whiteboard         (collaborative drawing)│  │
+│  │       └────────▶ Signaling          (Talk HPB)             │  │
+│  │                                                            │  │
+│  │  ┌─────────────────────────────────────────────────────┐   │  │
+│  │  │  Talk Stack                                         │   │  │
+│  │  │  - coturn     (TURN relay, UDP 3478 + 49152–65535)  │   │  │
+│  │  │  - NATS       (message broker)                      │   │  │
+│  │  │  - signaling  (High Performance Backend)            │   │  │
+│  │  │  - Janus      (WebRTC gateway)                      │   │  │
+│  │  └─────────────────────────────────────────────────────┘   │  │
+│  │                                                            │  │
+│  │  ┌─────────────────────────────────────────────────────┐   │  │
+│  │  │  Backup Service                                     │   │  │
+│  │  │  - Restic (daily 2 AM, encrypted + deduplicated)    │   │  │
+│  │  │  - PostgreSQL dump + Nextcloud data                 │   │  │
+│  │  └─────────────────────────────────────────────────────┘   │  │
+│  │                                                            │  │
+│  │  ┌─────────────────────────────────────────────────────┐   │  │
+│  │  │  Komodo Periphery  (port 8120, Tailscale only)      │   │  │
+│  │  └─────────────────────────────────────────────────────┘   │  │
+│  │                                                            │  │
+│  │  ┌─────────────────────────────────────────────────────┐   │  │
+│  │  │  Tailscale  (tag:vps-external)                      │   │  │
+│  │  │  - Only SSH access path (public SSH blocked)        │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  │                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │  Attached Volume (50 GB)                            │  │  │
+│  │  │  - Nextcloud user data + PostgreSQL files           │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Object Storage (S3-compatible)                            │  │
+│  │  - Terraform state  (manually pre-created bucket)         │  │
+│  │  - Nextcloud backups (bucket managed by Terraform)        │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ DNS (proheuvelrug.nl)                                     │  │
+│  │  - drive.proheuvelrug.nl      → VPS (Nextcloud)           │  │
+│  │  - office.proheuvelrug.nl     → VPS (Collabora)           │  │
+│  │  - whiteboard.proheuvelrug.nl → VPS (Whiteboard)          │  │
+│  │  - signaling.proheuvelrug.nl  → VPS (Talk HPB)            │  │
+│  │  - turn.proheuvelrug.nl       → VPS (TURN)                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Components
 
 ### Infrastructure
-- **Hetzner Cloud VPS**: cpx32 instance (8 vCPU, 16 GB RAM) in Nuremberg
-- **Hetzner Volume**: 50 GB persistent storage for data
+- **Hetzner Cloud VPS**: cpx42 (8 vCPU, 32 GB RAM), Ubuntu 24.04, Nuremberg
+- **Hetzner Volume**: 50 GB persistent storage attached to VPS
 - **Hetzner Object Storage**: S3-compatible storage for backups and Terraform state
-- **Hetzner DNS**: Managed DNS for dobbertjeduik.nl
+- **Hetzner DNS**: Managed DNS for the domain
 
 ### Application Stack
-- **Caddy**: Reverse proxy with automatic HTTPS via Let's Encrypt
+- **Caddy**: Reverse proxy with automatic HTTPS via Let's Encrypt (Hetzner DNS challenge)
 - **Nextcloud**: Self-hosted file sync and collaboration platform
   - **PostgreSQL 15**: Database backend
   - **Redis 7**: Caching and file locking
+- **Collabora Online**: In-browser document editing (Writer, Calc, Impress)
+- **Whiteboard**: Real-time collaborative drawing
 - **ClamAV**: Antivirus daemon for file scanning
 - **Restic**: Encrypted, deduplicated backups to Object Storage
 
 ### Networking & Security
-- **Hetzner Firewall**: Blocks SSH from public internet (only HTTP/HTTPS/ICMP/TURN exposed)
-- **Tailscale**: Mesh VPN for SSH access and private networking (`tag:vps-external`)
-- **Komodo Periphery**: Docker container monitoring agent (bound to Tailscale IP only)
+- **Hetzner Firewall**: Only HTTP/HTTPS/ICMP/TURN exposed; SSH blocked from public internet
+- **Tailscale**: Mesh VPN providing the only SSH access path (`tag:vps-external`)
+- **Komodo Periphery**: Docker container monitoring agent, bound to Tailscale IP only
 
 ### Nextcloud Apps
 
-Apps are managed automatically via the custom entrypoint script (`vps/nextcloud/nextcloud-entrypoint.sh`).
+Apps are managed declaratively via `vps/nextcloud/nextcloud-entrypoint.sh`, which runs on container startup and installs/configures apps automatically using `occ`. No manual app installation is required.
 
-**Installed apps:**
-
-| App | Description |
-|-----|-------------|
-| `richdocuments` | Nextcloud Office - document editing via Collabora |
-| `spreed` | Nextcloud Talk - video conferencing and chat |
-| `notify_push` | Client Push - real-time sync for desktop/mobile clients |
-| `admin_audit` | Audit logging - tracks user actions for compliance |
-| `files_antivirus` | Antivirus scanning - scans uploads via ClamAV daemon |
-
-**Disabled apps:**
-
-| App | Reason |
-|-----|--------|
-| `app_api` | External app hosting platform - not used |
-| `photos` | Photo gallery - not needed for file storage focus |
-
-**Available but not installed:**
-
-These apps can be enabled via Admin Settings → Apps:
+**Installed and configured automatically:**
 
 | App | Description |
 |-----|-------------|
-| `files_accesscontrol` | Automated file handling rules |
-| `twofactor_totp` | Two-factor authentication (TOTP) |
-| `bruteforcesettings` | Brute-force protection settings UI |
-| `suspicious_login` | Suspicious login detection |
-| `files_retention` | Automatic file retention policies |
-| `quota_warning` | Warn users when approaching storage quota |
-| `groupfolders` | Shared folders with group permissions |
-| `deck` | Kanban-style project management |
-| `calendar` | CalDAV calendar |
-| `contacts` | CardDAV contacts |
-| `mail` | Email client |
-| `notes` | Note-taking app |
-| `tasks` | Task management (integrates with calendar) |
-| `bookmarks` | Bookmark manager |
+| `richdocuments` | Nextcloud Office — document editing via Collabora |
+| `spreed` | Nextcloud Talk — video conferencing, chat, and TURN/HPB integration |
+| `whiteboard` | Collaborative whiteboard |
+| `notify_push` | Client Push — real-time sync for desktop and mobile clients |
+| `admin_audit` | Audit logging — tracks user actions for compliance |
+| `files_antivirus` | Antivirus scanning — scans uploads via ClamAV daemon |
 
-**Managing apps via command line:**
+**Disabled automatically:**
 
-```bash
-# List installed apps
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ app:list'
+| App       | Reason                                            |
+|-----------|---------------------------------------------------|
+| `app_api` | External app hosting platform — not used          |
+| `photos`  | Photo gallery — not needed for file storage focus |
 
-# Install and enable an app
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ app:install <app-id>'
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ app:enable <app-id>'
-
-# Disable an app
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ app:disable <app-id>'
-```
+To add an app to the declarative setup, add the appropriate `occ app:install` and `occ app:enable` calls to `nextcloud-entrypoint.sh`. Other apps (e.g. `calendar`, `contacts`, `deck`) can also be enabled ad hoc via **Admin Settings → Apps**.
 
 ### Backup Strategy
-- **Frequency**: Daily at 2 AM (during maintenance window)
-- **Retention**:
-  - Daily backups: 30 days
-  - Weekly backups: 52 weeks (1 year)
-  - Monthly backups: 24 months (2 years)
+- **Frequency**: Daily at 2 AM (during Nextcloud maintenance window)
+- **Retention**: 30 daily · 52 weekly · 24 monthly
 - **Method**: Incremental, encrypted, deduplicated via Restic
 - **Storage**: Hetzner Object Storage (S3-compatible)
-- **What's backed up**:
-  - PostgreSQL database dumps
-  - Nextcloud user data
-  - Application configuration
+- **What's backed up**: PostgreSQL database dump + Nextcloud user data + application config
 
-## Prerequisites
+---
 
-### Required Accounts
-- Hetzner Cloud account with API token
-- Hetzner Object Storage with access keys
+## Setup
 
-### Local Requirements
+### Prerequisites
+
+**Accounts required:**
+- [Hetzner Cloud](https://www.hetzner.com/cloud) — with API token and Object Storage access keys
+- [Tailscale](https://tailscale.com) — required for SSH access (see [Tailscale Setup](#2-tailscale-setup) below)
+- [Brevo](https://www.brevo.com) — for outgoing email (free tier: 300 emails/day)
+
+**Local tools:**
 - Terraform 1.9.5+
-- Python 3.12+ with uv
+- Python 3.12+ with `uv`
 - SSH key pair for deployment
 
-## Deployment
+### 1. Clone and Configure
 
-### 1. Initial Setup
-
-Clone the repository and set up environment:
+Clone the repository:
 
 ```bash
 git clone <repository-url>
 cd heuvelrug-it
+```
+
+#### Option A: 1Password (recommended)
+
+If you use 1Password, secrets are stored in the vault `Infra` under `GitHub.RCdeWit.heuvelrug-it`. The `.env.1password` template uses `op://` references that are resolved at runtime:
+
+```bash
+op inject -i .env.1password -o .env
+source .env
+```
+
+Re-run `op inject` any time you update secrets in 1Password.
+
+#### Option B: Manual configuration
+
+```bash
 cp .env.example .env
 ```
 
-Edit `.env` and fill in all required credentials:
-- Hetzner Cloud API token
-- S3 access keys for Object Storage (used for both Terraform state and Restic backups)
-- SSH public key
-- Generate passwords for PostgreSQL, Redis, Nextcloud, and Restic
-- SMTP credentials for email notifications (see Email Configuration below)
-- Tailscale auth key (required - SSH is only accessible via Tailscale)
+Edit `.env` and fill in all required values. See `.env.example` for full documentation of every variable.
 
-**Note**: The S3 bucket name for backups is automatically retrieved from Terraform outputs during deployment. The PyInfra script will construct the S3 endpoint from your configured region (`TF_VAR_hetzner_region`).
+### 2. Tailscale Setup
 
-### 2. Configure Domain Nameservers
+Tailscale is **required** — public SSH (port 22) is blocked at the Hetzner firewall level. All SSH access goes through Tailscale, which provides encrypted mesh VPN connectivity without exposing SSH to the internet.
+
+1. [Sign up for Tailscale](https://tailscale.com) and create a tailnet
+2. In the Tailscale admin panel, go to **Settings → Keys**
+3. Create an **auth key** with:
+   - **Reusable**: yes (needed for reprovisioning)
+   - **Tags**: `tag:vps-external`
+4. Add the key to `.env`:
+   ```bash
+   export TF_VAR_tailscale_auth_key=tskey-auth-...
+   export TAILSCALE_AUTH_KEY=tskey-auth-...
+   ```
+
+The VPS joins your tailnet automatically during cloud-init provisioning — before any PyInfra configuration runs.
+
+### 3. Configure Domain Nameservers
 
 Point your domain to Hetzner's authoritative nameservers:
+
 1. Log in to your domain registrar
-2. Update nameservers to Hetzner's DNS:
+2. Update nameservers to:
    - `hydrogen.ns.hetzner.com`
    - `oxygen.ns.hetzner.com`
    - `helium.ns.hetzner.de`
-3. Wait for DNS propagation (can take up to 48 hours)
+3. Wait for DNS propagation (typically 1–6 hours, up to 48 hours)
 
-For detailed instructions, see [Hetzner's authoritative nameservers documentation](https://docs.hetzner.com/dns-console/dns/general/authoritative-name-servers/).
-
-**Verify DNS propagation before continuing:**
+Verify propagation before continuing:
 
 ```bash
-# Check if Hetzner nameservers are responding
-dig NS dobbertjeduik.nl +short
-
-# Should show:
-# helium.ns.hetzner.de.
-# hydrogen.ns.hetzner.com.
-# oxygen.ns.hetzner.com.
+dig NS proheuvelrug.nl +short
+# Should return all three Hetzner nameservers
 ```
 
-If nameservers don't match, wait and try again. Propagation typically takes 1-6 hours but can take up to 48 hours.
+### 4. Create the Terraform State Bucket
 
-### 3. Create Object Storage Buckets
+The Terraform state backend (S3) must exist before `terraform init` can run — Terraform can't create the bucket that stores its own state. This is a one-time manual step:
 
-Via Hetzner Cloud Console:
-1. Navigate to Object Storage
-2. Create bucket `heuvelrugterraformstate` in nbg1 (Nuremberg)
-3. Create access keys and add to `.env`
+1. In Hetzner Cloud Console, go to **Object Storage**
+2. Create a bucket named `heuvelrugterraformstate` in `nbg1` (Nuremberg)
+3. Create access keys and add them to `.env` (see `.env.example` for variable names)
 
-### 4. Provision Infrastructure
+### 5. Provision Infrastructure
 
 ```bash
-# Load environment variables
 source .env
-
-# Initialize Terraform and migrate state to S3
 cd terraform
-terraform init -migrate-state
 
-# Review and apply infrastructure changes
+terraform init   # Connects to the pre-existing S3 state bucket
 terraform plan
 terraform apply
 
-# Wait ~1-2 minutes for cloud-init to install Tailscale on the VPS
-# Verify VPS joined the Tailnet:
+# Wait ~1–2 minutes for cloud-init to install Tailscale on the VPS
+# Then verify the VPS appeared in your tailnet:
 tailscale status | grep nextcloud
 ```
 
-#### Understanding Terraform State Migration
+**Disable Tailscale key expiry for the VPS** — Tailscale device keys expire after 180 days by default. When a device key expires the VPS drops off the tailnet, cutting off all SSH access (since public SSH is blocked). After the VPS appears in your tailnet:
 
-**If this is your first deployment:**
-- Terraform will create local state first
-- `-migrate-state` will offer to move it to S3
-- Answer "yes" to migrate
+1. Open the [Tailscale admin panel](https://login.tailscale.com/admin/machines)
+2. Find the VPS, click **⋯ → Disable key expiry**
 
-**If you already have remote state in S3:**
-- Terraform will use the remote state automatically
-- `-migrate-state` is a no-op (safe to run)
+This is a one-time step per VPS. The auth key in `.env` is only used when a device initially joins — it can expire without affecting an already-connected VPS.
 
-**If you have local state from a previous deployment:**
-- `-migrate-state` will detect existing local state
-- It will prompt to migrate to S3
-- Answer "yes" and local state will be uploaded securely
+### 6. Configure Email (Brevo)
 
-### 5. Configure Email (Brevo)
+Nextcloud uses SMTP to send notifications, password resets, and share emails.
 
-Nextcloud requires SMTP configuration to send email notifications (user creation, password resets, etc.).
+1. Sign up at [https://www.brevo.com](https://www.brevo.com)
+2. Go to **SMTP & API → SMTP** and create a new SMTP key
+3. Add to `.env`:
+   ```bash
+   export SMTP_HOST=smtp-relay.brevo.com
+   export SMTP_PORT=587
+   export SMTP_SECURE=tls
+   export SMTP_AUTHTYPE=LOGIN
+   export SMTP_NAME=your-brevo-login@example.com   # your Brevo account email (username)
+   export SMTP_PASSWORD=your-generated-smtp-key    # the API key, NOT your account password
+   export MAIL_FROM_ADDRESS=noreply               # sends as noreply@proheuvelrug.nl
+   ```
 
-**Recommended**: Use [Brevo](https://www.brevo.com/) (EU-based, free tier: 300 emails/day)
+#### Optional: Verify domain for better deliverability
 
-1. Sign up at [https://www.brevo.com/](https://www.brevo.com/)
-2. Navigate to: **SMTP & API** → **SMTP**
-3. Click **Create a new SMTP key**
-4. Copy the generated SMTP credentials
-5. Add to your `.env` file:
+Verifying your domain with Brevo improves deliverability and removes "sent via brevo.com" footers:
 
-```bash
-export SMTP_HOST=smtp-relay.brevo.com
-export SMTP_PORT=587
-export SMTP_SECURE=tls
-export SMTP_AUTHTYPE=LOGIN
-export SMTP_NAME=your-brevo-email@example.com
-export SMTP_PASSWORD=your-generated-smtp-key
-export MAIL_FROM_ADDRESS=noreply
-```
+1. In Brevo: **Settings → Senders & IP → Add Domain**, enter `proheuvelrug.nl`
+2. Brevo will provide a verification TXT record and two DKIM CNAME records
+3. Add them to `.env`:
+   ```bash
+   export TF_VAR_brevo_verification_code="your-verification-code"
+   export TF_VAR_brevo_dkim_key1="b1.your-domain.dkim.brevo.com"
+   export TF_VAR_brevo_dkim_key2="b2.your-domain.dkim.brevo.com"
+   ```
+4. Apply with `cd terraform && terraform apply` — SPF and DMARC records are added automatically
 
-**Notes**:
-- Use `SMTP_NAME` for the username (not `SMTP_USERNAME`) - this is the official Nextcloud Docker variable name
-- The SMTP password is the API key from Brevo, not your account password
-- The email domain is automatically taken from `TF_VAR_domain` (e.g., `noreply@dobbertjeduik.nl`)
+Emails work without domain verification, but deliverability will be lower.
 
-**Alternative providers**:
-- Mailgun EU (good Terraform support)
-- Amazon SES (cheapest, requires AWS account)
-- Postmark (excellent deliverability)
-
-See `.env.example` for detailed configuration instructions.
-
-#### Optional: Verify Domain for Better Deliverability
-
-For production use, verify your domain with Brevo to improve email deliverability:
-
-1. In Brevo, go to **Settings** → **Senders & IP** → **Add Domain**
-2. Enter `dobbertjeduik.nl` and follow the verification steps
-3. Brevo will provide DNS records including:
-   - A verification code (code-verification TXT record)
-   - 2 DKIM CNAME records (mail._domainkey, mail2._domainkey)
-4. Add these to your `.env` file:
+### 7. Deploy VPS
 
 ```bash
-export TF_VAR_brevo_verification_code="your-verification-code-here"
-export TF_VAR_brevo_dkim_key1="b1.your-domain-com.dkim.brevo.com"
-export TF_VAR_brevo_dkim_key2="b2.your-domain-com.dkim.brevo.com"
-```
-
-5. Run Terraform to add the DNS records:
-
-```bash
-cd terraform
-terraform apply
-```
-
-The SPF and DMARC records are automatically configured. Once DNS propagates (5-15 minutes), verify the domain in Brevo.
-
-**Note**: Emails will work without domain verification, but may have lower deliverability and show "sent via brevo.com" warnings.
-
-### 6. Configure VPS
-
-```bash
-# Return to project root
-cd ..
-
-# Install Python dependencies
+cd ..  # Return to project root
 uv sync
 
-# First-time deployment (creates deploy user)
+# First-time deployment (creates deploy user, runs all stages)
 uv run pyinfra/configure_vps.py --fresh
 
-# Or for updates to existing deployment
+# Subsequent deployments (skips bootstrap)
 uv run pyinfra/configure_vps.py
 ```
 
-### 7. Verify Deployment
+To run a specific stage only:
 
-1. Visit `https://drive.dobbertjeduik.nl`
-2. Log in with Nextcloud admin credentials from `.env`
-3. Get your Tailscale hostname: `cd terraform && terraform output tailnet_hostname`
-4. Check backup service: `ssh deploy@<tailscale-hostname> "docker logs nextcloud-backup-1"`
+```bash
+uv run pyinfra/configure_vps.py --stage 2-docker
+```
+
+### 8. Verify Deployment
+
+```bash
+# Get the VPS Tailscale hostname
+cd terraform && terraform output tailnet_hostname
+
+# Visit Nextcloud
+open https://drive.proheuvelrug.nl
+
+# Check backup service
+ssh deploy@<tailscale-hostname> "docker logs nextcloud-backup-1"
+```
+
+---
+
+## Updates
+
+Dependency updates (Docker image versions, Terraform providers, Python packages) are handled automatically by [Renovate](https://docs.renovatebot.com/). Renovate opens pull requests when new versions are available.
+
+**Workflow:**
+
+1. Review the Renovate PR (check changelog and release notes)
+2. Merge the PR
+3. Deploy the update:
+   ```bash
+   git pull
+   source .env
+   uv run pyinfra/configure_vps.py
+   ```
+
+PyInfra re-renders all templates and restarts affected containers. For major Nextcloud version upgrades, run maintenance commands afterwards:
+
+```bash
+ssh deploy@<tailscale-hostname>
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ maintenance:repair'
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ db:add-missing-indices'
+```
+
+---
 
 ## Backup Management
 
-### Automated Backup Monitoring
+### Automated Monitoring
 
-This deployment includes optional integration with healthcheck monitoring services. When configured, the backup script automatically pings a monitoring URL after each successful backup.
+[Healthchecks.io](https://healthchecks.io) (free tier) alerts you if a daily backup doesn't complete:
 
-**Setup with Healthchecks.io (Recommended):**
-
-1. Sign up at [https://healthchecks.io](https://healthchecks.io) (free tier available)
-2. Create a new check with:
+1. Sign up and create a new check:
    - **Period**: 1 day (backups run daily at 2 AM)
    - **Grace time**: 2 hours (buffer for backup duration)
-3. Copy your unique ping URL
-4. Add to your `.env` file:
+2. Copy the ping URL and add it to `.env`:
    ```bash
    export HEALTHCHECK_URL=https://hc-ping.com/your-unique-uuid
    ```
-5. Redeploy to apply: `uv run pyinfra/configure_vps.py`
+3. Redeploy to apply: `uv run pyinfra/configure_vps.py`
 
-**How it works:**
-- After each successful backup, the script pings your monitoring URL
-- If no ping is received within 26 hours (24h + 2h grace), you'll receive an alert
-- Alerts can be sent via email, SMS, Slack, Discord, etc.
+After each successful backup, the script pings this URL. If no ping is received within 26 hours, you'll receive an alert via email, Slack, or other configured channels.
 
-**Alternative services:**
-- [UptimeRobot](https://uptimerobot.com/) - HTTP(S) monitoring
-- [Better Uptime](https://betteruptime.com/) - Incident management
-
-### Manual Backup Monitoring
+### Manual Commands
 
 ```bash
-# SSH into VPS
 ssh deploy@<tailscale-hostname>
 
 # View backup logs
@@ -379,156 +354,73 @@ docker logs -f nextcloud-backup-1
 # List all snapshots
 docker exec nextcloud-backup-1 restic snapshots
 
-# Show repository statistics
+# Last snapshot only
+docker exec nextcloud-backup-1 restic snapshots --last
+
+# Repository statistics
 docker exec nextcloud-backup-1 restic stats --mode restore-size
 
-# Check last backup status
-docker exec nextcloud-backup-1 restic snapshots --last
-```
-
-### Manual Backup
-
-```bash
 # Trigger immediate backup
-ssh deploy@<tailscale-hostname>
 docker exec nextcloud-backup-1 /bin/sh /backup.sh
+
+# Run integrity check
+docker exec nextcloud-backup-1 restic check
 ```
 
-### Container Monitoring with Komodo
+### Retention Policy
 
-This deployment includes optional integration with [Komodo](https://komo.do/) for Docker container monitoring and management via Tailscale mesh VPN.
+Restic prunes old backups automatically after each run:
 
-**Architecture:**
-- **Komodo Core**: Runs on your NAS or management server
-- **Komodo Periphery**: Agent running on this VPS, accessible only via Tailscale
-- **Tailscale**: Provides secure private networking between Core and Periphery
+- **Daily**: last 30 days
+- **Weekly**: last 52 weeks (1 year)
+- **Monthly**: last 24 months (2 years)
 
-**Setup:**
+Integrity checks run automatically every Sunday.
 
-1. Add to your `.env` file:
-   ```bash
-   export PERIPHERY_PASSKEY=your-passkey       # Shared secret for Komodo auth
-   ```
-
-2. Deploy Periphery:
-   ```bash
-   uv run pyinfra/configure_vps.py --stage 2-docker  # Deploys Periphery container
-   ```
-
-3. Find the VPS Tailscale address:
-   ```bash
-   ssh deploy@<tailscale-hostname> "tailscale status"
-   # Note the IP (100.x.x.x) or hostname
-   ```
-
-4. Register in Komodo Core:
-   - Add a new server with address: `<tailscale-ip>:8120` or `<tailscale-hostname>:8120`
-   - Use the same passkey configured in `PERIPHERY_PASSKEY`
-
-**Security notes:**
-- Periphery is bound to the Tailscale IP only (not exposed to the internet)
-- Tailscale ACLs should restrict access to port 8120 from your management server only
-- The `komodo.skip: "true"` label prevents Periphery from managing itself
-
-**Without Komodo:**
-
-If you don't use Komodo, simply omit `PERIPHERY_PASSKEY` from your `.env`. Periphery won't start (it falls back to binding to 127.0.0.1). Tailscale is always installed as it's required for SSH access.
-
-### Backup Retention Policy
-
-Restic automatically prunes old backups according to this schedule:
-- **Daily**: Last 30 daily backups
-- **Weekly**: Last 52 weekly backups (1 year)
-- **Monthly**: Last 24 monthly backups (2 years)
-
-Weekly integrity checks run automatically every Sunday.
+---
 
 ## Disaster Recovery
 
-### Restoring from Backup
+### Automated Restore Utility
 
-#### Quick Start: Automated Restore Utility
-
-The easiest way to restore backups is using the automated restore utility. Run it locally and it will connect to your VPS via SSH:
+Run from your local machine — connects to the VPS via SSH and handles all the complexity:
 
 ```bash
-# Run the restore utility (from your local machine, via Tailscale hostname)
 ./restore.sh <tailscale-hostname>
-
-# Example
-./restore.sh heuvelrug-43275f-nextcloud
 ```
 
-The utility provides an interactive menu with the following options:
+Options: full restore, restore to temporary location, restore specific files/directories, database-only restore.
 
-1. **Full restore** - Complete disaster recovery (destructive)
-2. **Restore to temporary location** - Inspect backup contents safely
-3. **Restore specific files/directories** - Selective restoration
-4. **Database only** - Restore PostgreSQL database only
-5. **Exit**
+### Manual Restore
 
-**Features:**
-- Runs locally - no need to copy files to VPS
-- Automatically loads credentials from the VPS environment file via SSH
-- Lists available snapshots with timestamps
-- Manages maintenance mode and service orchestration remotely
-- Validates destructive operations with confirmation prompts
-- Provides clear progress indicators and colored output
-- Handles all the complexity of the manual restore process
-
-**Requirements:**
-- SSH key authentication configured for the `deploy` user
-- Script runs from your local machine and connects to VPS
-
-#### Manual Restore (Advanced)
-
-##### 1. List Available Snapshots
+#### 1. List snapshots
 
 ```bash
-# SSH into VPS or backup container
 docker exec -it nextcloud-backup-1 /bin/sh
-
-# List all snapshots
 restic snapshots
-
-# List snapshots with specific tags
-restic snapshots --tag nextcloud
 ```
 
-##### 2. Restore Files
+#### 2. Restore to temporary location (safe, non-destructive)
 
 ```bash
-# Restore entire snapshot to temporary location
 restic restore <snapshot-id> --target /tmp/restore
-
-# Restore specific files/directories
-restic restore <snapshot-id> \
-  --target /tmp/restore \
-  --include /mnt/data/ncdata/admin/files
-
-# Restore database dump
-restic restore <snapshot-id> \
-  --target /tmp/restore \
-  --include /backup/nextcloud_db.sql
 ```
 
-##### 3. Restore to Production
+#### 3. Full production restore
 
-**⚠️ Warning**: This will overwrite your production data. Always test with a temporary restore first!
-
-**Note**: The backup container has read-only access to data directories for safety. To restore to production, you must run restic from the VPS host (not from inside the container).
+> **Warning:** This overwrites production data. Always test with a temporary restore first.
+>
+> The backup container has read-only access. Run restic directly from the VPS host for production restores.
 
 ```bash
 # 1. Enable maintenance mode
 sudo docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'
 
-# 2. Stop services (all of them, including backup container)
-cd /opt/nextcloud
-sudo docker compose down
+# 2. Stop all services
+cd /opt/nextcloud && sudo docker compose down
 
-# 3. Set environment variables for restic
-# The .env file is owned by root, so extract values with sudo
+# 3. Load credentials from the root-owned .env
 export RESTIC_PASSWORD=$(sudo grep '^RESTIC_PASSWORD=' /opt/nextcloud/.env | cut -d= -f2-)
 export AWS_ACCESS_KEY_ID=$(sudo grep '^AWS_ACCESS_KEY_ID=' /opt/nextcloud/.env | cut -d= -f2-)
 export AWS_SECRET_ACCESS_KEY=$(sudo grep '^AWS_SECRET_ACCESS_KEY=' /opt/nextcloud/.env | cut -d= -f2-)
@@ -536,696 +428,262 @@ export AWS_S3_ENDPOINT=$(sudo grep '^AWS_S3_ENDPOINT=' /opt/nextcloud/.env | cut
 export AWS_S3_BUCKET=$(sudo grep '^AWS_S3_BUCKET=' /opt/nextcloud/.env | cut -d= -f2-)
 export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
 
-# 4. Find the mount point
+# 4. Clear existing data (restic restore is additive, so wipe first for clean state)
 MOUNT_POINT=$(sudo findmnt -n -o TARGET /dev/disk/by-id/scsi-0HC_Volume_* | grep -v '/var/lib/docker')
-
-# 5. List snapshots and choose one to restore
-restic snapshots --tag nextcloud
-# Note the snapshot ID from the output (e.g., "a1b2c3d4")
-
-# 6. Restore data directly to the mount point
-# NOTE: Restic restore is ADDITIVE - it doesn't delete extra files
-# For a clean restore (exact snapshot state), clear directories first:
 sudo rm -rf ${MOUNT_POINT}/nextcloud_db/*
 sudo rm -rf ${MOUNT_POINT}/nextcloud_data/*
 sudo rm -rf ${MOUNT_POINT}/ncdata/*
 
-# Now restore
+# 5. Restore
 sudo -E restic restore <snapshot-id> --target ${MOUNT_POINT}
 
-# This restores to the mount point structure:
-# - ${MOUNT_POINT}/nextcloud_db → PostgreSQL data
-# - ${MOUNT_POINT}/nextcloud_data → Nextcloud app data
-# - ${MOUNT_POINT}/ncdata → User files
-
-# 7. Start all services
-cd /opt/nextcloud
-sudo docker compose up -d
-
-# 8. Disable maintenance mode and repair
+# 6. Start services and disable maintenance mode
+cd /opt/nextcloud && sudo docker compose up -d
 sudo docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off'
 sudo docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'
 ```
 
-##### 4. Restore Specific Files Only
-
-If you only need to restore specific files (e.g., accidentally deleted user files):
+#### 4. Restore specific files (e.g. accidentally deleted user files)
 
 ```bash
-# Restore to temp location first
+# Restore to a temporary location first
 docker exec nextcloud-backup-1 restic restore <snapshot-id> \
   --target /tmp/restore \
   --include /mnt/data/ncdata/username/files/important-file.pdf
 
-# Copy to production (from VPS)
+# Copy to production
 cp /tmp/restore/mnt/data/ncdata/username/files/important-file.pdf \
    ${MOUNT_POINT}/ncdata/username/files/
 
 # Fix permissions
 chown -R www-data:www-data ${MOUNT_POINT}/ncdata/username/files/
 
-# Trigger Nextcloud file scan
+# Trigger Nextcloud file scan to make the file visible
 docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan username'
 ```
 
-##### 5. Complete Disaster Recovery
-
-**Estimated total time: 45-90 minutes** (depending on backup size and network speed)
-
-For complete infrastructure loss:
+#### 5. Complete infrastructure loss
 
 ```bash
-# 1. Provision fresh infrastructure (~10 minutes)
-source .env
-cd terraform
-terraform apply
+# 1. Provision fresh infrastructure (~10 min)
+source .env && cd terraform && terraform apply
+# Wait ~1–2 min for Tailscale, verify: tailscale status | grep nextcloud
 
-# Wait ~1-2 minutes for cloud-init to install Tailscale
-tailscale status | grep nextcloud
+# 2. Deploy base configuration (~15 min)
+cd .. && uv run pyinfra/configure_vps.py --fresh
 
-# 2. Deploy base configuration (~15 minutes)
-cd ..
-uv run pyinfra/configure_vps.py --fresh
-
-# 3. Stop Nextcloud services (~1 minute)
-ssh deploy@<tailscale-hostname>
-cd /opt/nextcloud
-docker compose down
-
-# 4. Restore data from backup (~20-60 minutes depending on data size)
-# Restic is already installed by PyInfra
-
-# Configure environment (extract from root-owned .env file)
-export RESTIC_PASSWORD=$(sudo grep '^RESTIC_PASSWORD=' /opt/nextcloud/.env | cut -d= -f2-)
-export AWS_ACCESS_KEY_ID=$(sudo grep '^AWS_ACCESS_KEY_ID=' /opt/nextcloud/.env | cut -d= -f2-)
-export AWS_SECRET_ACCESS_KEY=$(sudo grep '^AWS_SECRET_ACCESS_KEY=' /opt/nextcloud/.env | cut -d= -f2-)
-export AWS_S3_ENDPOINT=$(sudo grep '^AWS_S3_ENDPOINT=' /opt/nextcloud/.env | cut -d= -f2-)
-export AWS_S3_BUCKET=$(sudo grep '^AWS_S3_BUCKET=' /opt/nextcloud/.env | cut -d= -f2-)
-export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
-
-# List snapshots and choose latest
-restic snapshots
-
-# Restore to mounted volume
-restic restore <snapshot-id> --target /
-
-# 5. Start services
-cd /opt/nextcloud
-docker compose up -d
-
-# 6. Verify and run maintenance
-docker exec nextcloud-nextcloud-1 \
-  su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'
+# 3. Restore data from backup (follow steps 1–6 above)
 ```
+
+Estimated total recovery time: 45–90 minutes depending on backup size.
+
+---
 
 ## Maintenance
 
-### Updating Nextcloud
+### Checking Service Health
 
 ```bash
-# SSH into VPS
 ssh deploy@<tailscale-hostname>
 
-# Pull latest image
-cd /opt/nextcloud
-docker compose pull nextcloud
+# All containers and their status
+docker ps
 
-# Restart with new image
-docker compose up -d nextcloud
-```
+# Per-service logs
+docker logs nextcloud-nextcloud-1          # Nextcloud app
+docker logs nextcloud-nextcloud-db-1       # PostgreSQL
+docker logs nextcloud-redis-1              # Redis
+docker logs nextcloud-collabora-1          # Collabora Online
+docker logs nextcloud-whiteboard-1         # Whiteboard
+docker logs nextcloud-signaling-1          # Talk HPB
+docker logs nextcloud-coturn-1             # TURN relay
+docker logs nextcloud-backup-1             # Backup service
+sudo journalctl -u caddy -f               # Caddy (reverse proxy)
 
-### Updating System Packages
+# Nextcloud-specific health
+docker exec nextcloud-nextcloud-1 \
+  su -s /bin/bash www-data -c 'php /var/www/html/occ check'
+docker exec nextcloud-nextcloud-1 \
+  su -s /bin/bash www-data -c 'php /var/www/html/occ status'
 
-```bash
-# Via PyInfra (from local machine)
-uv run pyinfra/configure_vps.py
+# Verify Collabora is reachable from Nextcloud
+docker exec nextcloud-nextcloud-1 curl -sI http://collabora:9980 | head -1
 
-# Or manually on VPS
-ssh deploy@<tailscale-hostname>
-sudo apt update && sudo apt upgrade -y
+# Check configured Collabora WOPI URL
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ config:app:get richdocuments wopi_url'
+# Should return: https://office.proheuvelrug.nl
 ```
 
 ### Monitoring Disk Usage
 
 ```bash
-# Check volume usage
-ssh deploy@<tailscale-hostname> df -h
-
-# Check Docker disk usage
-ssh deploy@<tailscale-hostname> docker system df
-
-# Check Nextcloud storage usage
-# Visit: Settings > Administration > System
+ssh deploy@<tailscale-hostname> df -h                   # Volume and root disk
+ssh deploy@<tailscale-hostname> docker system df        # Docker image/volume usage
+ssh deploy@<tailscale-hostname> docker stats --no-stream  # Per-container CPU/RAM
 ```
 
-### Checking Service Health
+### Container Monitoring with Komodo
+
+[Komodo](https://komo.do/) provides a web UI for Docker container monitoring and management, accessible via Tailscale.
+
+**Setup:**
+
+1. Set `PERIPHERY_PASSKEY` in `.env` and redeploy (`--stage 2-docker`)
+2. Find the VPS Tailscale address: `ssh deploy@<tailscale-hostname> "tailscale ip"`
+3. Register in Komodo Core: add server at `<tailscale-ip>:8120` with the same passkey
+
+Komodo Periphery is bound to the Tailscale IP only and is not reachable from the public internet.
+
+---
+
+## Scaling
+
+### Vertical Scaling
+
+Edit `terraform/hetzner.tf` to change the instance type, then `terraform apply`:
+
+| Type        | vCPU   | RAM        | Users    | Cost                    |
+|-------------|--------|------------|----------|-------------------------|
+| cpx22       | 4      | 8 GB       | ~20      | ~€15/mo                 |
+| **cpx42**   | **8**  | **32 GB**  | **~50**  | **~€25/mo** ← current   |
+| cpx52       | 16     | 32 GB      | ~100     | ~€48/mo                 |
+| cpx62       | 32     | 64 GB      | 100+     | ~€96/mo                 |
+
+After resizing, update PostgreSQL tuning parameters in `vps/docker/nextcloud.yml.j2` to match the new RAM.
+
+### Storage Expansion
+
+Edit the volume size in `terraform/hetzner.tf` and run `terraform apply`. Hetzner resizes the volume instantly; then expand the filesystem on the VPS:
 
 ```bash
-# All services status
 ssh deploy@<tailscale-hostname>
-docker ps
-docker compose -f /opt/nextcloud/docker-compose.yml ps
-
-# Nextcloud logs
-docker logs nextcloud-nextcloud-1
-
-# Database logs
-docker logs nextcloud-nextcloud-db-1
-
-# Caddy logs
-sudo journalctl -u caddy -f
+DEVICE=$(findmnt -n -o SOURCE /mnt/HC_Volume_* | head -1)
+sudo resize2fs $DEVICE
+df -h  # Verify
 ```
 
-### Managing Backups
+Volumes can be expanded but not shrunk.
 
-The backup container runs automated daily backups at 2 AM using Restic. To manually interact with backups:
+---
 
-```bash
-# View backup snapshots (RESTIC_REPOSITORY is pre-configured)
-docker exec nextcloud-backup-1 restic snapshots --tag nextcloud
+## Cost Estimate
 
-# View repository statistics
-docker exec nextcloud-backup-1 restic stats --mode restore-size
+Monthly costs (ex. VAT):
 
-# List all snapshots with details
-docker exec nextcloud-backup-1 restic snapshots
+| Resource                                               | Cost        |
+|--------------------------------------------------------|-------------|
+| VPS (cpx42)                                            | ~€25/mo     |
+| Volume (50 GB)                                         | ~€3/mo      |
+| Object Storage (base, 1 TB storage + 1 TB egress)      | €4.99/mo    |
+| DNS                                                    | Free        |
+| **Total**                                              | **~€33/mo** |
 
-# Manually trigger a backup
-docker exec nextcloud-backup-1 /bin/sh /backup.sh
-
-# Check backup logs
-docker logs nextcloud-backup-1
-
-# Interactive shell (for more complex operations)
-docker exec -it nextcloud-backup-1 /bin/sh
-# Inside the container, restic commands work directly:
-# restic snapshots
-# restic check
-# restic restore <snapshot-id> --target /restore
-```
-
-The backup script (`vps/nextcloud/backup.sh`) automatically:
-- Enables Nextcloud maintenance mode
-- Creates PostgreSQL database dump
-- Backs up database, Nextcloud files, and user data
-- Disables maintenance mode
-- Prunes old backups based on retention policy (30 days daily, 52 weeks weekly, 24 months monthly)
-- Runs integrity checks weekly on Sundays
-
-## Development
-
-### Local Testing
-
-```bash
-# Validate Terraform configuration
-cd terraform
-terraform validate
-terraform plan
-
-# Test PyInfra configuration (dry run)
-cd ..
-uv run pyinfra/configure_vps.py --dry
-```
-
-### Project Structure
-
-```text
-.
-├── terraform/           # Infrastructure provisioning
-│   ├── main.tf         # Terraform configuration
-│   ├── variables.tf    # Input variables
-│   ├── outputs.tf      # Output values
-│   └── hetzner.tf      # Hetzner resources
-├── pyinfra/            # Configuration management
-│   ├── stages/         # Deployment stages
-│   │   ├── 0-bootstrap.py  # Creates deploy user, SSH setup
-│   │   ├── 1-system.py     # System packages, firewall, Tailscale
-│   │   ├── 2-docker.py     # Docker, Nextcloud stack, Komodo Periphery
-│   │   └── 3-caddy.py      # Reverse proxy configuration
-│   └── configure_vps.py
-├── vps/                # VPS configuration files
-│   ├── caddy/          # Caddy reverse proxy config
-│   ├── docker/         # Docker Compose templates
-│   └── nextcloud/      # Nextcloud-specific configs
-│       ├── nextcloud.config.php
-│       ├── nextcloud-entrypoint.sh
-│       └── backup.sh
-├── restore.sh          # Automated backup restoration utility
-├── .env                # Environment variables (gitignored)
-├── .env.example        # Template for environment variables
-└── README.md           # This file
-```
-
-## Security Considerations
-
-- All services run behind Caddy with automatic HTTPS
-- Backups are encrypted with Restic before upload
-- S3 buckets have `prevent_destroy` lifecycle rule
-- Object Storage versioning enabled for backup bucket
-- Passwords generated with `openssl rand -base64 32`
-- SSH key-based authentication only
-- PostgreSQL and Redis not exposed externally
+---
 
 ## Troubleshooting
 
 ### Backup Failures
 
 ```bash
-# Check backup container logs
 docker logs nextcloud-backup-1
-
-# Verify S3 credentials
 docker exec nextcloud-backup-1 env | grep AWS
-
-# Test Restic connection
-docker exec nextcloud-backup-1 restic snapshots
-
-# Check disk space
-df -h
+docker exec nextcloud-backup-1 restic snapshots  # Test connection
+df -h  # Check disk space
 ```
 
 ### Nextcloud Issues
 
 ```bash
-# Run Nextcloud maintenance
 docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'
 
-# Check for errors
 docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ check'
 
-# View PHP logs
 docker logs nextcloud-nextcloud-1 | grep -i error
 ```
 
 ### Email Not Sending
 
 ```bash
-# Check SMTP configuration
+# Check what Nextcloud has configured for SMTP
 docker exec nextcloud-nextcloud-1 \
   su -s /bin/bash www-data -c 'php /var/www/html/occ config:list system' | grep mail
 
-# Test email sending (sends test email to admin)
-docker exec nextcloud-nextcloud-1 \
-  su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set mail_domain --value="your-domain.com"'
+# Test port reachability from the VPS
+ssh deploy@<tailscale-hostname> "nc -zv smtp-relay.brevo.com 587"
 
-# View email-related errors in logs
-docker exec nextcloud-nextcloud-1 cat /var/www/html/data/nextcloud.log | grep -i "mail\|smtp"
+# View email-related errors
+docker exec nextcloud-nextcloud-1 cat /var/www/html/data/nextcloud.log \
+  | grep -i "mail\|smtp"
 ```
 
-**Common issues**:
-- Incorrect SMTP credentials → Check Brevo dashboard for correct API key
-- Firewall blocking port 587 → Test with `telnet smtp-relay.brevo.com 587`
-- Wrong sender domain → Ensure `MAIL_DOMAIN` matches your domain
+**Common causes:**
+- **Wrong password** — `SMTP_PASSWORD` must be the Brevo API key, not your Brevo account password
+- **Wrong username** — `SMTP_NAME` must be your Brevo account email address (not the API key name)
+- **Port blocked** — test with `nc -zv smtp-relay.brevo.com 587`; if it fails, check UFW rules on the VPS
+- **Wrong sender domain** — `MAIL_FROM_ADDRESS` is combined with `TF_VAR_domain` to form the sender; verify it matches your Brevo verified domain
+
+### Collabora Not Working
+
+```bash
+docker logs nextcloud-collabora-1
+
+# Verify Nextcloud can reach Collabora internally
+docker exec nextcloud-nextcloud-1 curl -sI http://collabora:9980 | head -1
+
+# Check configured WOPI URL (must match public Caddy URL)
+docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
+  'php /var/www/html/occ config:app:get richdocuments wopi_url'
+# Should return: https://office.proheuvelrug.nl
+```
 
 ### DNS Issues
 
 ```bash
-# Verify DNS records
-dig drive.dobbertjeduik.nl
-dig healthcheck.dobbertjeduik.nl
+dig drive.proheuvelrug.nl
+dig NS proheuvelrug.nl +short
 
-# Check Hetzner DNS zone in Terraform
-cd terraform
-terraform state show hcloud_zone.domain
+# Inspect Terraform DNS state
+cd terraform && terraform state show hcloud_zone.domain
 ```
 
-### Collabora Office Not Working
-
-```bash
-# Check Collabora logs
-docker logs nextcloud-collabora-1
-
-# Verify Nextcloud can reach Collabora
-docker exec nextcloud-nextcloud-1 curl -I http://collabora:9980
-
-# Check Collabora configuration in Nextcloud
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ config:app:get richdocuments wopi_url'
-# Should return: https://office.dobbertjeduik.nl
-
-# Test document editing
-# 1. Log into Nextcloud web interface
-# 2. Create a new document (+ → New Document)
-# 3. Should open in-browser editor
-```
-
-## Nextcloud OCC Command Reference
-
-Nextcloud's `occ` (ownCloud Console) is a powerful command-line tool for administration.
-
-**General syntax:**
-```bash
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ <command>'
-```
-
-**Useful commands:**
-
-```bash
-# List all available commands
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ list'
-
-# Get help for a specific command
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ help files:scan'
-
-# Maintenance mode
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off'
-
-# File operations
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan --all'
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan username'
-
-# System maintenance
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ check'
-
-# Database operations
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ db:add-missing-indices'
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ db:add-missing-columns'
-
-# Configuration
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ config:list'
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:get version'
-```
-
-## Upgrading Nextcloud
-
-### Minor Version Updates (e.g., 30.0.1 → 30.0.2)
-
-Minor updates are straightforward and safe:
-
-```bash
-ssh deploy@<tailscale-hostname>
-cd /opt/nextcloud
-sudo docker compose pull nextcloud
-sudo docker compose up -d nextcloud
-
-# Verify upgrade
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ status'
-```
-
-### Major Version Updates (e.g., 30 → 31)
-
-Major version updates require careful planning:
-
-**Before upgrading:**
-
-1. **Read release notes** at https://nextcloud.com/changelog/
-2. **Check app compatibility** - some apps may not support the new version yet
-3. **Backup before upgrade**:
-   ```bash
-   ssh deploy@<tailscale-hostname>
-   docker exec nextcloud-backup-1 /bin/sh /backup.sh
-   ```
-
-**Perform upgrade:**
-
-1. Update Docker image tag in `vps/docker/nextcloud.yml.j2`:
-   ```yaml
-   image: nextcloud:31  # Change from nextcloud:30
-   ```
-
-2. Deploy the update:
-   ```bash
-   uv run pyinfra/configure_vps.py
-   ```
-
-3. Run maintenance commands:
-   ```bash
-   ssh deploy@<tailscale-hostname>
-   docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-     'php /var/www/html/occ maintenance:repair'
-   docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-     'php /var/www/html/occ db:add-missing-indices'
-   docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-     'php /var/www/html/occ check'
-   ```
-
-4. Test functionality:
-   - Log into web interface
-   - Test file upload/download
-   - Test document editing (Collabora)
-   - Check admin overview for warnings
-
-**Rollback procedure (if needed):**
-
-If the upgrade fails, restore from backup following the [Disaster Recovery](#disaster-recovery) procedures.
-
-## User Management
-
-### Adding Users
-
-**Via Web UI:**
-1. Log in as admin
-2. Top-right menu → Users
-3. Click "+ New user"
-4. Fill in username, display name, email, and password
-5. Assign to groups if needed
-
-**Via Command Line:**
-```bash
-# Add user (will prompt for password)
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:add username'
-
-# Add user with options
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:add --display-name="John Doe" --group=users username'
-```
-
-### Resetting Passwords
-
-```bash
-# Reset user password (will prompt for new password)
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:resetpassword username'
-```
-
-### Managing Quotas
-
-```bash
-# Set user quota to 10GB
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:setting username files quota "10 GB"'
-
-# Set unlimited quota
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:setting username files quota none'
-
-# Check user quota usage
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:report'
-```
-
-### Disabling/Enabling Users
-
-```bash
-# Disable user (prevents login)
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:disable username'
-
-# Enable user
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:enable username'
-
-# Delete user (permanent!)
-docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c \
-  'php /var/www/html/occ user:delete username'
-```
-
-## Scaling the Deployment
-
-### Vertical Scaling (Upgrading Instance Size)
-
-If your organization grows and needs more resources:
-
-**1. Resize VPS in Terraform:**
-
-Edit `terraform/hetzner.tf`:
-```terraform
-server_type = "cpx42"  # Change from cpx32 (16 vCPU, 32GB RAM)
-```
-
-**2. Update PostgreSQL tuning for new RAM:**
-
-Edit `vps/docker/nextcloud.yml.j2`:
-```yaml
--c shared_buffers=4GB              # Was 2GB
--c effective_cache_size=20GB       # Was 10GB
--c maintenance_work_mem=1GB        # Was 512MB
-```
-
-**3. Apply changes:**
-```bash
-cd terraform && terraform apply
-# Hetzner will resize the instance (may cause 1-2 minutes downtime)
-
-cd .. && uv run pyinfra/configure_vps.py
-```
-
-**Instance size recommendations:**
-- **cpx22** (4 vCPU, 8GB): Up to 20 users, light usage (~€15/month)
-- **cpx32** (8 vCPU, 16GB): Up to 50 users, moderate usage (~€25/month) - **Current**
-- **cpx42** (16 vCPU, 32GB): Up to 100 users, heavy usage (~€48/month)
-- **cpx52** (32 vCPU, 64GB): 100+ users, very heavy usage (~€96/month)
-
-### Storage Expansion
-
-To expand the 50GB data volume:
-
-**1. Resize in Terraform:**
-
-Edit `terraform/hetzner.tf`:
-```terraform
-resource "hcloud_volume" "volume1" {
-  size = 100  # Change from 50 to 100GB
-  # ...
-}
-```
-
-**2. Apply changes:**
-```bash
-cd terraform
-terraform apply  # Hetzner resizes the volume instantly
-```
-
-**3. Resize filesystem on VPS:**
-```bash
-ssh deploy@<tailscale-hostname>
-# Find the volume device
-DEVICE=$(findmnt -n -o SOURCE /mnt/HC_Volume_* | head -1)
-sudo resize2fs $DEVICE
-df -h  # Verify new size
-```
-
-**Note:** Volume expansion is instant and non-disruptive. Volumes can be expanded but not shrunk.
-
-### Monitoring Resource Usage
-
-```bash
-# Check CPU and memory usage
-ssh deploy@<tailscale-hostname> htop
-
-# Check disk usage
-ssh deploy@<tailscale-hostname> df -h
-
-# Check Docker resource usage
-ssh deploy@<tailscale-hostname> docker stats
-
-# Check per-service resource usage
-ssh deploy@<tailscale-hostname> docker stats --no-stream --format \
-  "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
-```
-
-## Cost Estimate
-
-Monthly costs (excluding VAT):
-- VPS (cpx32): ~€25/month
-- Volume (50 GB): ~€3/month
-- Object Storage (base): €4.99/month (includes 1 TB storage + 1 TB egress)
-- DNS: Free
-
-**Total**: ~€33/month
-
-### Cost Optimization Tips
-
-**Potential savings:**
-
-1. **Downsize VPS** (if usage is low):
-   - cpx22 (4 vCPU, 8GB RAM): ~€15/month (saves €10/month)
-   - Suitable for <20 users with light usage
-   - Test first: Monitor resource usage for 1-2 weeks before downsizing
-
-2. **Reduce backup retention** (if 2+ years not needed):
-   - Current: 30 daily + 52 weekly + 24 monthly
-   - Alternative: 14 daily + 8 weekly + 12 monthly
-   - Reduces S3 storage by ~40%
-   - Edit `BACKUP_RETENTION_DAYS` in `.env` and backup script retention policy
-
-3. **Use cheaper region** (if latency acceptable):
-   - Falkenstein (fsn1) may have slightly lower costs
-   - Check current pricing: https://www.hetzner.com/cloud#pricing
-   - Consider proximity to users (Germany-based users benefit from nbg1)
-
-**Current setup is already cost-optimized for:**
-- Small-to-medium organizations (up to 50 users)
-- Reliable infrastructure with proven scaling path
-- Professional-grade backups and disaster recovery
+---
 
 ## Security Considerations
 
-### Security Features
+**Exposed to internet:**
+- Port 80/443 (HTTP/HTTPS) — behind Caddy with automatic HTTPS
+- Port 3478/UDP — TURN relay for Nextcloud Talk NAT traversal
+- Port 22 (SSH) — **blocked** by Hetzner firewall; only accessible via Tailscale
 
-- All services run behind Caddy with automatic HTTPS
-- Backups are encrypted with Restic before upload
-- S3 buckets have `prevent_destroy` lifecycle rule
-- Object Storage versioning enabled for backup bucket
-- Passwords generated with `openssl rand -base64 32`
-- SSH key-based authentication only (no password auth)
-- PostgreSQL and Redis not exposed externally
-- Hetzner Cloud firewall blocks SSH from public internet (Tailscale-only access)
-- UFW firewall configured (SSH only accessible via Tailscale)
-- Docker health checks monitor service availability
-- Redis persistence with AOF for data durability
-- Tailscale mesh VPN for secure private networking (monitoring access)
-- Komodo Periphery bound to Tailscale IP only (not internet-accessible)
+**Internal only:**
+- PostgreSQL (5432), Redis (6379) — Docker network only
+- Nextcloud (8080), Collabora (9980), Whiteboard, signaling — localhost, proxied by Caddy
+- Komodo Periphery (8120) — Tailscale IP only
 
-### Security Maintenance
-
-**Monthly tasks:**
-- Update Nextcloud: `docker compose pull && docker compose up -d`
-- Update system: `ssh deploy@<tailscale-hostname> "sudo apt update && sudo apt upgrade -y"`
-- Review access logs: `docker logs nextcloud-nextcloud-1 | grep -E "ERROR|WARN"`
-- Check Nextcloud admin overview for security warnings
-
-**Recommendations:**
-- Subscribe to [Nextcloud security advisories](https://nextcloud.com/security/advisories/)
-- Monitor [Hetzner status page](https://status.hetzner.com/)
-- Review backup health weekly via Healthchecks.io
-- fail2ban is installed for additional brute-force protection
-
-### Attack Surface
-
-**Exposed services:**
-- Port 80/443 (HTTP/HTTPS) - Behind Caddy reverse proxy with automatic HTTPS
-- Port 3478/UDP (TURN) - For Nextcloud Talk NAT traversal
-- Port 22 (SSH) - Blocked by Hetzner firewall; only accessible via Tailscale mesh VPN
-
-**Not exposed (internal only):**
-- PostgreSQL (5432) - Internal Docker network only
-- Redis (6379) - Internal Docker network only
-- Nextcloud app (8080) - Localhost only, proxied by Caddy
-- Collabora (9980) - Localhost only, proxied by Caddy
-- Komodo Periphery (8120) - Tailscale IP only, not exposed to internet
-
-**Security best practices implemented:**
-- Least privilege access (deploy user with sudo, not root)
-- Encrypted backups at rest and in transit
-- Regular automated backups with off-site storage
-- Infrastructure as Code (no manual configuration drift)
-- HSTS headers enforced for all HTTPS traffic
+**Security features:**
+- Automatic HTTPS with HSTS headers
 - DNS CAA records restrict certificate issuance to Let's Encrypt
+- Encrypted backups (Restic) at rest and in transit
+- S3 buckets have `prevent_destroy` lifecycle rule and versioning enabled
+- SSH key-based authentication only (password auth disabled)
+- Least-privilege deploy user (no direct root access)
+- Unattended security upgrades enabled
 
-## Support
+**Recommended maintenance:**
+- Subscribe to [Nextcloud security advisories](https://nextcloud.com/security/advisories/)
+- Monitor [Hetzner status](https://status.hetzner.com/)
+- Review Nextcloud admin overview periodically for warnings
 
-For issues or questions:
-1. Check logs as described in Troubleshooting section
-2. Review [Nextcloud documentation](https://docs.nextcloud.com)
-3. Review [Restic documentation](https://restic.readthedocs.io)
+---
 
 ## License
 
-Apache License 2.0 - See [LICENSE](LICENSE) for details.
+Apache License 2.0 — see [LICENSE](LICENSE) for details.
 
-This project includes configurations for third-party software:
-- **Nextcloud** - [AGPL-3.0](https://github.com/nextcloud/server/blob/master/COPYING)
-- **PostgreSQL** - [PostgreSQL License](https://www.postgresql.org/about/licence/)
-- **Redis** - [BSD-3-Clause](https://redis.io/docs/about/license/)
-- **Caddy** - [Apache-2.0](https://github.com/caddyserver/caddy/blob/master/LICENSE)
-- **Collabora Online** - [MPL-2.0](https://www.collaboraoffice.com/code/)
-- **Restic** - [BSD-2-Clause](https://github.com/restic/restic/blob/master/LICENSE)
+Third-party components: [Nextcloud (AGPL-3.0)](https://github.com/nextcloud/server/blob/master/COPYING) · [PostgreSQL License](https://www.postgresql.org/about/licence/) · [Redis (BSD-3-Clause)](https://redis.io/docs/about/license/) · [Caddy (Apache-2.0)](https://github.com/caddyserver/caddy/blob/master/LICENSE) · [Collabora Online (MPL-2.0)](https://www.collaboraoffice.com/code/) · [Restic (BSD-2-Clause)](https://github.com/restic/restic/blob/master/LICENSE)
