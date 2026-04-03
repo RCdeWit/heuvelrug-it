@@ -181,6 +181,15 @@ files.template(
     _sudo=True,
 )
 
+files.template(
+    name="Upload Nextcloud configuration script",
+    src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud-configure.sh",
+    dest=f"{NEXTCLOUD_DIR}/nextcloud/nextcloud-configure.sh",
+    mode="0755",
+    domain=DOMAIN,
+    _sudo=True,
+)
+
 files.put(
     name="Upload Nextcloud backup script",
     src=f"{PROJECT_ROOT}/vps/nextcloud/backup.sh",
@@ -384,6 +393,15 @@ server.shell(
         # Disable maintenance mode if it's still on
         f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T -u www-data nextcloud "
         "php occ maintenance:mode --off || true"
+    ],
+    _sudo=True,
+)
+
+server.shell(
+    name="Apply Nextcloud configuration (apps, settings, integrations)",
+    commands=[
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud "
+        "bash /custom-configure.sh"
     ],
     _sudo=True,
 )

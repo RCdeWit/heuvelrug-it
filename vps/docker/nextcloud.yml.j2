@@ -49,6 +49,7 @@ services:
       - nextcloud_data:/var/www/html
       - {{ mount_point }}/ncdata:/var/www/html/data
       - ./nextcloud/nextcloud-entrypoint.sh:/custom-entrypoint.sh:ro
+      - ./nextcloud/nextcloud-configure.sh:/custom-configure.sh:ro
     entrypoint: ["/custom-entrypoint.sh"]
     environment:
       POSTGRES_HOST: nextcloud-db

@@ -9,11 +9,13 @@ Infrastructure-as-code (IaC) for a self-hosted Nextcloud instance. Uses **Terraf
 ## Project Structure
 
 ```
-├── terraform/           # Infrastructure provisioning (Hetzner Cloud)
-│   ├── main.tf         # Provider config, S3 backend
-│   ├── hetzner.tf      # VPS, volume, DNS, storage resources
-│   ├── variables.tf    # Input variables
-│   └── outputs.tf      # Output values
+├── terraform/                # Infrastructure provisioning (Hetzner Cloud)
+│   ├── main.tf              # Provider config, S3 backend
+│   ├── hetzner.tf           # VPS, volume, DNS, storage resources
+│   ├── variables.tf         # Input variables
+│   ├── outputs.tf           # Output values
+│   ├── backend.hcl.example  # Per-tenant backend config template (committed)
+│   └── backend.hcl          # Resolved per-tenant backend config (gitignored)
 ├── pyinfra/            # Configuration management
 │   ├── configure_vps.py  # Main entry point
 │   ├── inventory.py      # Host definitions
@@ -44,7 +46,9 @@ source .env                           # Load environment variables
 ```bash
 source .env
 cd terraform
-terraform init          # Initialize (first time or after provider changes)
+cp backend.hcl.example backend.hcl   # First time: create per-tenant backend config
+# Edit backend.hcl: set key = "tenants/<tenant-name>/terraform.tfstate"
+terraform init -backend-config=backend.hcl  # Initialize with per-tenant state key
 terraform plan          # Preview changes
 terraform apply         # Apply changes
 ```
@@ -69,9 +73,9 @@ uv run pyinfra/configure_vps.py --dry  # Dry run PyInfra (doesn't exist yet - us
 ## Key Technologies
 
 - **Python 3.12+** with `uv` for dependency management
-- **Terraform 1.9.5** with Hetzner Cloud provider
+- **Terraform 1.14.8** with Hetzner Cloud provider
 - **PyInfra 3.3+** for server configuration
-- **Docker Compose** for services (Nextcloud, PostgreSQL, Redis, Collabora, ClamAV)
+- **Docker Compose** for services (Nextcloud, PostgreSQL, Redis, Collabora, ClamAV, Whiteboard)
 - **Caddy** for reverse proxy with automatic HTTPS
 - **Restic** for encrypted backups to Hetzner Object Storage
 - **Tailscale** for mesh VPN (SSH access and private networking - public SSH is blocked)
@@ -105,9 +109,23 @@ Stages run in order (0→3). Stage 0 only runs with `--fresh`:
 ## Patterns & Conventions
 
 - Jinja2 templates (`.j2`) in `vps/` are rendered by PyInfra during deployment
-- Terraform state stored in Hetzner Object Storage (S3-compatible)
+- Terraform state stored in Hetzner Object Storage (S3-compatible), namespaced per tenant
 - Docker Compose services defined in `vps/docker/nextcloud.yml.j2`
 - Backups run daily at 2 AM via Docker container with Restic
+- Container names and deploy path are derived from `COMPOSE_PROJECT_NAME` / `NEXTCLOUD_DIR` env vars
+- `2-docker.py` and `3-caddy.py` hard-exit if `TF_VAR_domain` is unset (prevents deploying with wrong domain)
+
+## Multi-Tenant Support
+
+This repo is designed to support multiple tenants sharing the same codebase and S3 bucket:
+
+- **`TF_VAR_project_name`** — prefixes all Hetzner resources (server, volume, DNS, storage)
+- **`TF_VAR_domain`** — per-tenant domain; must be set before running PyInfra or Terraform
+- **`NEXTCLOUD_DIR`** — deploy path on VPS (default: `/opt/nextcloud`); overridable per tenant
+- **`COMPOSE_PROJECT_NAME`** — Docker project name; container names are derived from this
+- **`HETZNER_S3_DOMAIN`** — S3 storage domain suffix; overridable if bucket region differs
+- **Terraform state** — each tenant gets a unique key path in the shared S3 bucket via `backend.hcl`
+- **VPS and data volume** have `prevent_destroy = true` to guard against accidental `terraform destroy`
 
 ## VPS Access
 
@@ -137,8 +155,10 @@ To add this server to Komodo Core, register it using its Tailscale hostname or I
 
 ## Important Notes
 
-- Never commit `.env` - contains secrets
+- Never commit `.env` or `terraform/backend.hcl` — both contain tenant-specific secrets/config
 - Run `source .env` before Terraform commands
 - Use `--fresh` flag only for initial deployment or to recreate deploy user
 - Terraform backend requires manual S3 bucket creation before first use
+- Always use `terraform init -backend-config=backend.hcl` (not bare `terraform init`) to load the correct per-tenant state key
 - After `terraform apply` for a new VPS, wait ~1-2 min for cloud-init (Tailscale) before running PyInfra
+- `TF_VAR_domain` **must** be set in the environment before running PyInfra — stages will hard-exit if missing
