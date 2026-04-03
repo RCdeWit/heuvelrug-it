@@ -54,7 +54,7 @@ resource "hcloud_firewall" "nextcloud" {
 resource "hcloud_server" "drive_instance" {
   name        = "${var.project_name}-${random_id.suffix.hex}-nextcloud"
   image       = "ubuntu-24.04"
-  server_type = "cpx42"
+  server_type = var.instance_type
   location    = "nbg1"
   public_net {
     ipv4_enabled = true
@@ -93,7 +93,7 @@ resource "hcloud_server" "drive_instance" {
 
 resource "hcloud_volume" "volume1" {
   name      = "${var.project_name}-${random_id.suffix.hex}-data"
-  size      = 50
+  size      = var.volume_size_gb
   server_id = hcloud_server.drive_instance.id
   automount = true
   format    = "ext4"

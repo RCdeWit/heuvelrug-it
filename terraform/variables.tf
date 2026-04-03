@@ -51,6 +51,18 @@ variable "hetzner_region" {
   default     = "nbg1"
 }
 
+variable "instance_type" {
+  type        = string
+  description = "Hetzner server type for the Nextcloud VPS"
+  default     = "cpx42"
+}
+
+variable "volume_size_gb" {
+  type        = number
+  description = "Size in GB for the attached data volume"
+  default     = 50
+}
+
 # Brevo (email provider) DNS verification records
 # These are provided by Brevo when you add your domain for verification
 # Get these from: Brevo Dashboard -> Settings -> Senders & IP -> Add Domain

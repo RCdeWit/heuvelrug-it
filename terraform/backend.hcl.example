@@ -1,0 +1,11 @@
+# Per-tenant Terraform backend configuration.
+# Copy this file to backend.hcl and fill in your tenant-specific values.
+# Run: terraform init -backend-config=backend.hcl
+#
+# backend.hcl is gitignored to prevent accidental commits.
+# backend.hcl.example is committed as the template.
+#
+# All tenants share the same S3 bucket; each tenant gets a unique key (object path).
+# This avoids creating a new bucket per tenant while keeping state fully isolated.
+
+key = "tenants/tenant-x/terraform.tfstate"

@@ -2,12 +2,26 @@ terraform {
   required_version = "1.14.8"
 
   backend "s3" {
+    # WARNING: Terraform backend blocks cannot use variables or locals.
+    # The key (state file path) must be unique per tenant — silently leaving it
+    # unchanged will overwrite an existing tenant's Terraform state.
+    #
+    # All tenants share this bucket; each uses a unique key path.
+    #
+    # Option A (one-time override):
+    #   terraform init -backend-config="key=tenants/tenant-x/terraform.tfstate"
+    #
+    # Option B (recommended, per-tenant file):
+    #   Copy terraform/backend.hcl.example -> terraform/backend.hcl
+    #   Edit backend.hcl with the correct key for this tenant.
+    #   Run: terraform init -backend-config=backend.hcl
+    #   backend.hcl is gitignored to prevent accidental commits.
     bucket = "heuvelrugterraformstate"
-    key    = "terraform.tfstate"
+    key    = "tenants/heuvelrug/terraform.tfstate"
     region = "nbg1"  # Must match bucket region - update manually if changed
 
     endpoints = {
-      s3 = "https://nbg1.your-objectstorage.com"  # Must match bucket region
+      s3 = "https://nbg1.your-objectstorage.com"  # Must match bucket region; override via backend.hcl
     }
 
     # Required for Hetzner Object Storage (Ceph S3 compatibility)
