@@ -10,6 +10,7 @@ from utils.find_project_root import find_project_root
 from utils.get_terraform_output import get_terraform_output
 
 PROJECT_ROOT = find_project_root()
+NEXTCLOUD_DIR = os.environ.get("NEXTCLOUD_DIR", "/opt/nextcloud")
 POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
 NEXTCLOUD_ADMIN_USER = os.environ.get("NEXTCLOUD_ADMIN_USER", "admin")
 NEXTCLOUD_ADMIN_PASSWORD = os.environ["NEXTCLOUD_ADMIN_PASSWORD"]
@@ -18,7 +19,8 @@ RESTIC_PASSWORD = os.environ["RESTIC_PASSWORD"]
 AWS_ACCESS_KEY_ID = os.environ["TF_VAR_hetzner_s3_access_key"]
 AWS_SECRET_ACCESS_KEY = os.environ["TF_VAR_hetzner_s3_secret_key"]
 HETZNER_REGION = os.environ.get("TF_VAR_hetzner_region", "nbg1")
-AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.your-objectstorage.com"
+HETZNER_S3_DOMAIN = os.environ.get("HETZNER_S3_DOMAIN", "your-objectstorage.com")
+AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.{HETZNER_S3_DOMAIN}"
 # Get bucket name dynamically from Terraform outputs
 AWS_S3_BUCKET = get_terraform_output("s3_bucket")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
@@ -44,7 +46,9 @@ SMTP_NAME = os.environ.get("SMTP_NAME", "")  # Username for SMTP auth
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 MAIL_FROM_ADDRESS = os.environ.get("MAIL_FROM_ADDRESS", "noreply")
 # Reuse the domain from Terraform variables (no need for separate MAIL_DOMAIN)
-DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
+if "TF_VAR_domain" not in os.environ:
+    raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
+DOMAIN = os.environ["TF_VAR_domain"]
 
 # Komodo Periphery configuration
 PERIPHERY_PASSKEY = os.environ.get("PERIPHERY_PASSKEY", "")
@@ -103,7 +107,7 @@ server.shell(
 
 server.shell(
     name="Create AIO directory",
-    commands=["mkdir -p /opt/nextcloud"],
+    commands=[f"mkdir -p {NEXTCLOUD_DIR}"],
     _sudo=True,
 )
 
@@ -142,7 +146,7 @@ server.shell(
 files.template(
     name="Upload docker-compose file for Nextcloud",
     src=f"{PROJECT_ROOT}/vps/docker/nextcloud.yml.j2",
-    dest="/opt/nextcloud/docker-compose.yml",
+    dest=f"{NEXTCLOUD_DIR}/docker-compose.yml",
     mode="0644",
     mount_point=MOUNT_POINT,
     domain=DOMAIN,
@@ -151,27 +155,27 @@ files.template(
 
 server.shell(
     name="Create Collabora fonts directory",
-    commands=["mkdir -p /opt/nextcloud/collabora/fonts"],
+    commands=[f"mkdir -p {NEXTCLOUD_DIR}/collabora/fonts"],
     _sudo=True,
 )
 
 files.sync(
     name="Sync Collabora custom fonts",
     src=f"{PROJECT_ROOT}/vps/collabora/fonts/",
-    dest="/opt/nextcloud/collabora/fonts/",
+    dest=f"{NEXTCLOUD_DIR}/collabora/fonts/",
     _sudo=True,
 )
 
 server.shell(
     name="Create Nextcloud config directory",
-    commands=["mkdir -p /opt/nextcloud/nextcloud"],
+    commands=[f"mkdir -p {NEXTCLOUD_DIR}/nextcloud"],
     _sudo=True,
 )
 
 files.template(
     name="Upload Nextcloud custom entrypoint script",
     src=f"{PROJECT_ROOT}/vps/nextcloud/nextcloud-entrypoint.sh",
-    dest="/opt/nextcloud/nextcloud/nextcloud-entrypoint.sh",
+    dest=f"{NEXTCLOUD_DIR}/nextcloud/nextcloud-entrypoint.sh",
     mode="0755",
     domain=DOMAIN,
     _sudo=True,
@@ -180,7 +184,7 @@ files.template(
 files.put(
     name="Upload Nextcloud backup script",
     src=f"{PROJECT_ROOT}/vps/nextcloud/backup.sh",
-    dest="/opt/nextcloud/nextcloud/backup.sh",
+    dest=f"{NEXTCLOUD_DIR}/nextcloud/backup.sh",
     mode="0755",
     _sudo=True,
 )
@@ -211,14 +215,14 @@ server.shell(
 # Nextcloud Talk configuration files
 server.shell(
     name="Create Talk config directory",
-    commands=["mkdir -p /opt/nextcloud/talk"],
+    commands=[f"mkdir -p {NEXTCLOUD_DIR}/talk"],
     _sudo=True,
 )
 
 files.template(
     name="Upload coturn (TURN server) configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/turnserver.conf",
-    dest="/opt/nextcloud/talk/turnserver.conf",
+    dest=f"{NEXTCLOUD_DIR}/talk/turnserver.conf",
     mode="0644",
     domain=DOMAIN,
     turn_secret=TURN_SECRET,
@@ -229,7 +233,7 @@ files.template(
 files.template(
     name="Upload signaling server configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/signaling.conf",
-    dest="/opt/nextcloud/talk/signaling.conf",
+    dest=f"{NEXTCLOUD_DIR}/talk/signaling.conf",
     mode="0644",
     domain=DOMAIN,
     signaling_secret=SIGNALING_SECRET,
@@ -241,7 +245,7 @@ files.template(
 files.put(
     name="Upload NATS configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/nats.conf",
-    dest="/opt/nextcloud/talk/nats.conf",
+    dest=f"{NEXTCLOUD_DIR}/talk/nats.conf",
     mode="0644",
     _sudo=True,
 )
@@ -251,7 +255,7 @@ VPS_IP = get_terraform_output("vps_ip")
 files.template(
     name="Upload Janus gateway configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/janus.jcfg",
-    dest="/opt/nextcloud/talk/janus.jcfg",
+    dest=f"{NEXTCLOUD_DIR}/talk/janus.jcfg",
     mode="0644",
     domain=DOMAIN,
     vps_ip=VPS_IP,
@@ -263,7 +267,7 @@ files.template(
 files.put(
     name="Upload Janus WebSocket transport configuration",
     src=f"{PROJECT_ROOT}/vps/docker/talk/janus.transport.websockets.jcfg",
-    dest="/opt/nextcloud/talk/janus.transport.websockets.jcfg",
+    dest=f"{NEXTCLOUD_DIR}/talk/janus.transport.websockets.jcfg",
     mode="0644",
     _sudo=True,
 )
@@ -296,7 +300,7 @@ files.template(
         f"PERIPHERY_PASSKEY={PERIPHERY_PASSKEY}\n"
         f"TAILSCALE_IP={TAILSCALE_IP}\n"
     ),
-    dest="/opt/nextcloud/.env",
+    dest=f"{NEXTCLOUD_DIR}/.env",
     mode="0600",
     _sudo=True,
 )
@@ -304,7 +308,7 @@ files.template(
 server.shell(
     name="Launch Nextcloud",
     commands=[
-        "docker compose -f /opt/nextcloud/docker-compose.yml up -d"
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml up -d"
     ],
     _sudo=True,
 )
@@ -312,7 +316,7 @@ server.shell(
 server.shell(
     name="Restart Talk containers to apply config changes",
     commands=[
-        "docker compose -f /opt/nextcloud/docker-compose.yml restart signaling janus coturn nats || true"
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml restart signaling janus coturn nats || true"
     ],
     _sudo=True,
 )
@@ -321,7 +325,7 @@ server.shell(
     name="Wait for PostgreSQL to be ready",
     commands=[
         "for i in $(seq 1 30); do "
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud-db pg_isready -U nextcloud && break || sleep 2; "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud-db pg_isready -U nextcloud && break || sleep 2; "
         "done"
     ],
     _sudo=True,
@@ -331,7 +335,7 @@ server.shell(
     name="Fix database object ownership (ensure nextcloud user owns all objects)",
     commands=[
         # nextcloud is the superuser (POSTGRES_USER=nextcloud in docker-compose)
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud-db "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud-db "
         "psql -U nextcloud -d nextcloud -c "
         "\"DO \\$\\$ "
         "DECLARE r RECORD; "
@@ -352,7 +356,7 @@ server.shell(
     commands=[
         # Wait for Nextcloud container to be running and config.php to exist
         "for i in $(seq 1 60); do "
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud test -f /var/www/html/config/config.php && break || sleep 5; "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud test -f /var/www/html/config/config.php && break || sleep 5; "
         "done"
     ],
     _sudo=True,
@@ -363,9 +367,9 @@ server.shell(
     commands=[
         # Nextcloud creates oc_admin* users on init, but we want to use the nextcloud superuser
         # This ensures consistency with the ownership fix and prevents permission issues
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud "
         f"sed -i \"s/'dbuser' => 'oc_admin[^']*'/'dbuser' => 'nextcloud'/\" /var/www/html/config/config.php",
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T nextcloud "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud "
         f"sed -i \"s/'dbpassword' => '[^']*'/'dbpassword' => '{POSTGRES_PASSWORD}'/\" /var/www/html/config/config.php"
     ],
     _sudo=True,
@@ -375,10 +379,10 @@ server.shell(
     name="Run Nextcloud upgrade if needed",
     commands=[
         # Run upgrade if needed (handles maintenance mode automatically)
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T -u www-data nextcloud "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T -u www-data nextcloud "
         "php occ upgrade --no-interaction || true",
         # Disable maintenance mode if it's still on
-        "docker compose -f /opt/nextcloud/docker-compose.yml exec -T -u www-data nextcloud "
+        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T -u www-data nextcloud "
         "php occ maintenance:mode --off || true"
     ],
     _sudo=True,

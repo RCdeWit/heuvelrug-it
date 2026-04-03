@@ -9,7 +9,12 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-NEXTCLOUD_DIR="/opt/nextcloud"
+NEXTCLOUD_DIR="${NEXTCLOUD_DIR:-/opt/nextcloud}"
+# Container names derived from Docker Compose project name (defaults to directory basename).
+# Override by setting COMPOSE_PROJECT_NAME to match what was set during deployment.
+_PROJECT="${COMPOSE_PROJECT_NAME:-nextcloud}"
+NEXTCLOUD_CONTAINER="${_PROJECT}-nextcloud-1"
+DB_CONTAINER="${_PROJECT}-nextcloud-db-1"
 RESTORE_TEMP="/tmp/restore_$(date +%s)"
 
 # VPS connection (set via command line)
@@ -197,13 +202,13 @@ get_mount_point() {
 
 enable_maintenance_mode() {
     log_info "Enabling Nextcloud maintenance mode..."
-    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'" || true
+    ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'" || true
     log_success "Maintenance mode enabled"
 }
 
 disable_maintenance_mode() {
     log_info "Disabling Nextcloud maintenance mode..."
-    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off'" || true
+    ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --off'" || true
     log_success "Maintenance mode disabled"
 }
 
@@ -221,7 +226,7 @@ start_services() {
 
 run_maintenance() {
     log_info "Running Nextcloud maintenance and repair..."
-    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'"
+    ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:repair'"
     log_success "Maintenance completed"
 }
 
@@ -284,21 +289,21 @@ restore_full() {
     # Restore database from SQL dump
     log_info "Restoring database from SQL dump..."
     # Drop and recreate database using echo to pipe SQL commands
-    ssh_exec_sudo "echo 'DROP DATABASE IF EXISTS nextcloud; CREATE DATABASE nextcloud;' | docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d postgres"
+    ssh_exec_sudo "echo 'DROP DATABASE IF EXISTS nextcloud; CREATE DATABASE nextcloud;' | docker exec -i ${DB_CONTAINER} psql -U nextcloud -d postgres"
     # Import SQL dump
-    ssh_exec_sudo "docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud < ${mount_point}/backup/nextcloud_db.sql"
+    ssh_exec_sudo "docker exec -i ${DB_CONTAINER} psql -U nextcloud -d nextcloud < ${mount_point}/backup/nextcloud_db.sql"
 
     # Get database user from config and grant permissions
     log_info "Fixing database permissions..."
     local db_user
-    db_user=$(ssh_exec_sudo "docker exec nextcloud-nextcloud-1 grep \"'dbuser'\" /var/www/html/config/config.php | cut -d\\\" -f2")
+    db_user=$(ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} grep \"'dbuser'\" /var/www/html/config/config.php | cut -d\\\" -f2")
     if [[ -n "$db_user" ]]; then
-        ssh_exec_sudo "docker exec nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $db_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $db_user;'"
+        ssh_exec_sudo "docker exec ${DB_CONTAINER} psql -U nextcloud -d nextcloud -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $db_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $db_user;'"
     fi
 
     # Ensure installed flag is set in config.php
     log_info "Setting installed flag in config.php..."
-    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 bash -c 'cd /var/www/html/config && if ! grep -q \"installed\" config.php; then cp config.php config.php.bak && awk \"/);/{print \\\"  \\047installed\\047 => true,\\\"; print; next} 1\" config.php.bak > config.php && chown www-data:www-data config.php; fi'"
+    ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} bash -c 'cd /var/www/html/config && if ! grep -q \"installed\" config.php; then cp config.php config.php.bak && awk \"/);/{print \\\"  \\047installed\\047 => true,\\\"; print; next} 1\" config.php.bak > config.php && chown www-data:www-data config.php; fi'"
 
     log_success "Database restored"
 
@@ -307,7 +312,7 @@ restore_full() {
 
     # Restart Nextcloud container to apply all IaC configurations from entrypoint
     log_info "Restarting Nextcloud container to apply IaC configurations..."
-    ssh_exec_sudo "docker restart nextcloud-nextcloud-1"
+    ssh_exec_sudo "docker restart ${NEXTCLOUD_CONTAINER}"
     sleep 20  # Wait for container to fully restart and entrypoint to run
 
     # Run maintenance
@@ -369,7 +374,7 @@ restore_specific() {
         log_info "  1. SSH into VPS: ssh ${VPS_USER}@${VPS_HOST}"
         log_info "  2. Copy files: sudo cp -r $RESTORE_TEMP/* $mount_point/"
         log_info "  3. Fix permissions: sudo chown -R www-data:www-data $mount_point/ncdata/"
-        log_info "  4. Scan files: sudo docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan --all'"
+        log_info "  4. Scan files: sudo docker exec ${NEXTCLOUD_CONTAINER} su -s /bin/bash www-data -c 'php /var/www/html/occ files:scan --all'"
     else
         log_info "  1. SSH into VPS: ssh ${VPS_USER}@${VPS_HOST}"
         log_info "  2. Review files in $RESTORE_TEMP and copy manually as needed"
@@ -410,21 +415,21 @@ restore_database() {
     # Restore database from SQL dump
     log_info "Restoring database from SQL dump..."
     # Drop and recreate database using echo to pipe SQL commands
-    ssh_exec_sudo "echo 'DROP DATABASE IF EXISTS nextcloud; CREATE DATABASE nextcloud;' | docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d postgres"
+    ssh_exec_sudo "echo 'DROP DATABASE IF EXISTS nextcloud; CREATE DATABASE nextcloud;' | docker exec -i ${DB_CONTAINER} psql -U nextcloud -d postgres"
     # Import SQL dump
-    ssh_exec_sudo "docker exec -i nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud < ${RESTORE_TEMP}/backup/nextcloud_db.sql"
+    ssh_exec_sudo "docker exec -i ${DB_CONTAINER} psql -U nextcloud -d nextcloud < ${RESTORE_TEMP}/backup/nextcloud_db.sql"
 
     # Get database user from config and grant permissions
     log_info "Fixing database permissions..."
     local db_user
-    db_user=$(ssh_exec_sudo "docker exec nextcloud-nextcloud-1 grep \"'dbuser'\" /var/www/html/config/config.php | cut -d\\\" -f2")
+    db_user=$(ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} grep \"'dbuser'\" /var/www/html/config/config.php | cut -d\\\" -f2")
     if [[ -n "$db_user" ]]; then
-        ssh_exec_sudo "docker exec nextcloud-nextcloud-db-1 psql -U nextcloud -d nextcloud -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $db_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $db_user;'"
+        ssh_exec_sudo "docker exec ${DB_CONTAINER} psql -U nextcloud -d nextcloud -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $db_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $db_user;'"
     fi
 
     # Ensure installed flag is set in config.php
     log_info "Setting installed flag in config.php..."
-    ssh_exec_sudo "docker exec nextcloud-nextcloud-1 bash -c 'cd /var/www/html/config && if ! grep -q \"installed\" config.php; then cp config.php config.php.bak && awk \"/);/{print \\\"  \\047installed\\047 => true,\\\"; print; next} 1\" config.php.bak > config.php && chown www-data:www-data config.php; fi'"
+    ssh_exec_sudo "docker exec ${NEXTCLOUD_CONTAINER} bash -c 'cd /var/www/html/config && if ! grep -q \"installed\" config.php; then cp config.php config.php.bak && awk \"/);/{print \\\"  \\047installed\\047 => true,\\\"; print; next} 1\" config.php.bak > config.php && chown www-data:www-data config.php; fi'"
 
     log_success "Database restored"
 

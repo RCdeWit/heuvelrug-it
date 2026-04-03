@@ -20,8 +20,12 @@ BACKUP_DIR="/backup"
 DB_BACKUP_FILE="${BACKUP_DIR}/nextcloud_db.sql"
 RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
-NEXTCLOUD_CONTAINER="nextcloud-nextcloud-1"
-DB_CONTAINER="nextcloud-nextcloud-db-1"
+# Container names are derived from the Docker Compose project name.
+# Docker Compose defaults the project name to the directory name (/opt/nextcloud -> "nextcloud").
+# Override by setting COMPOSE_PROJECT_NAME in the environment.
+_PROJECT="${COMPOSE_PROJECT_NAME:-nextcloud}"
+NEXTCLOUD_CONTAINER="${_PROJECT}-nextcloud-1"
+DB_CONTAINER="${_PROJECT}-nextcloud-db-1"
 
 START_TIME=$(date +%s)
 

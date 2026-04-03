@@ -8,7 +8,9 @@ from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
 HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
-DOMAIN = os.environ.get("TF_VAR_domain", "dobbertjeduik.nl")
+if "TF_VAR_domain" not in os.environ:
+    raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
+DOMAIN = os.environ["TF_VAR_domain"]
 GO_VERSION = os.environ.get("GO_VERSION", "1.26.1")
 
 server.shell(
