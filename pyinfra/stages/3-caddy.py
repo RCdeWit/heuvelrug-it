@@ -11,7 +11,7 @@ HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
 if "TF_VAR_domain" not in os.environ:
     raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
 DOMAIN = os.environ["TF_VAR_domain"]
-GO_VERSION = os.environ.get("GO_VERSION", "1.26.1")
+GO_VERSION = os.environ.get("GO_VERSION", "1.26.2")
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
