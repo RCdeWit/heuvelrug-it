@@ -158,6 +158,8 @@ su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antiviru
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_port --value="3310"' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_stream_max_length --value="104857600"' || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_infected_action --value="delete"' || true
+# Disable background scanning - scan on upload only to prevent cron CPU saturation
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set files_antivirus av_background_scan --value="off"' || true
 
 # Run mimetype migration if not already done
 MIGRATION_FLAG="/var/www/html/data/.mimetype-migration-done"
