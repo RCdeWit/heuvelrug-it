@@ -363,9 +363,12 @@ server.shell(
 server.shell(
     name="Wait for Nextcloud to be ready",
     commands=[
-        # Wait for Nextcloud container to be running and config.php to exist
+        # Wait for Nextcloud healthcheck to pass (not just config.php which persists across upgrades
+        # and causes occ upgrade to run before new version files are fully in place)
         "for i in $(seq 1 60); do "
-        f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T nextcloud test -f /var/www/html/config/config.php && break || sleep 5; "
+        f"docker inspect --format='{{{{.State.Health.Status}}}}' "
+        f"$(docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml ps -q nextcloud) "
+        "2>/dev/null | grep -q healthy && break || sleep 5; "
         "done"
     ],
     _sudo=True,
@@ -389,7 +392,7 @@ server.shell(
     commands=[
         # Run upgrade if needed (handles maintenance mode automatically)
         f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T -u www-data nextcloud "
-        "php occ upgrade --no-interaction || true",
+        "php occ upgrade --no-interaction",
         # Disable maintenance mode if it's still on
         f"docker compose -f {NEXTCLOUD_DIR}/docker-compose.yml exec -T -u www-data nextcloud "
         "php occ maintenance:mode --off || true"
