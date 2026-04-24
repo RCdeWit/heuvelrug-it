@@ -269,7 +269,7 @@ services:
 
   # NATS server - message broker required by the signaling server
   nats:
-    image: nats:2.12.6
+    image: nats:2.12.7
     restart: always
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
