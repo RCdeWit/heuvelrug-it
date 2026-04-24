@@ -65,6 +65,7 @@ resource "hcloud_server" "drive_instance" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [user_data]
   }
 
   # Cloud-init: Install Tailscale before any SSH-based provisioning
@@ -149,13 +150,26 @@ resource "hcloud_zone_rrset" "letsencrypt_caa" {
   ]
 }
 
+# SimpleLogin email routing records - only created when simplelogin_verification_code is set
+resource "hcloud_zone_rrset" "simplelogin_mx" {
+  count   = var.simplelogin_verification_code != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "@"
+  type    = "MX"
+  ttl     = 3600
+  records = [
+    { value = "10 mx1.simplelogin.co." },
+    { value = "20 mx2.simplelogin.co." },
+  ]
+}
+
 # Brevo email authentication records
 # These records are required for Brevo to send emails on behalf of your domain
 # Get the DKIM keys from: Brevo Dashboard -> Settings -> Senders & IP -> Add Domain
 
-# Root domain TXT records - includes SPF and optional Brevo verification code
+# Root domain TXT records - includes SPF, optional Brevo verification, and optional SimpleLogin verification
 # Note: Records are sorted alphabetically to match Hetzner API ordering
-resource "hcloud_zone_rrset" "brevo_txt" {
+resource "hcloud_zone_rrset" "root_txt" {
   zone    = hcloud_zone.domain.name
   name    = "@"
   type    = "TXT"
@@ -164,13 +178,50 @@ resource "hcloud_zone_rrset" "brevo_txt" {
     var.brevo_verification_code != "" ? [
       { value = "\"${var.brevo_verification_code}\"" }
     ] : [],
+    var.simplelogin_verification_code != "" ? [
+      { value = "\"${var.simplelogin_verification_code}\"" }
+    ] : [],
     [
-      { value = "\"v=spf1 include:spf.brevo.com ~all\"" }
+      { value = format("\"v=spf1%s include:spf.brevo.com ~all\"", var.simplelogin_verification_code != "" ? " include:simplelogin.co" : "") }
     ]
   )
 }
 
-# DKIM records - cryptographic signatures for email authentication
+# SimpleLogin DKIM records
+resource "hcloud_zone_rrset" "simplelogin_dkim1" {
+  count   = var.simplelogin_verification_code != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "dkim._domainkey"
+  type    = "CNAME"
+  ttl     = 3600
+  records = [
+    { value = "dkim._domainkey.simplelogin.co." }
+  ]
+}
+
+resource "hcloud_zone_rrset" "simplelogin_dkim2" {
+  count   = var.simplelogin_verification_code != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "dkim02._domainkey"
+  type    = "CNAME"
+  ttl     = 3600
+  records = [
+    { value = "dkim02._domainkey.simplelogin.co." }
+  ]
+}
+
+resource "hcloud_zone_rrset" "simplelogin_dkim3" {
+  count   = var.simplelogin_verification_code != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "dkim03._domainkey"
+  type    = "CNAME"
+  ttl     = 3600
+  records = [
+    { value = "dkim03._domainkey.simplelogin.co." }
+  ]
+}
+
+# Brevo DKIM records - cryptographic signatures for email authentication
 # Brevo provides CNAME records that point to their DKIM infrastructure
 # Only create these if the DKIM keys are provided (not empty)
 
@@ -198,13 +249,14 @@ resource "hcloud_zone_rrset" "brevo_dkim2" {
 
 # DMARC record - policy for handling emails that fail authentication
 # This tells receiving servers what to do with emails that fail SPF/DKIM checks
+# p=quarantine: failed emails go to spam (stricter than p=none which only monitors)
 resource "hcloud_zone_rrset" "dmarc" {
   zone    = hcloud_zone.domain.name
   name    = "_dmarc"
   type    = "TXT"
   ttl     = 3600
   records = [
-    { value = "\"v=DMARC1; p=none; rua=mailto:dmarc@${var.domain}\"" }
+    { value = "\"v=DMARC1; p=quarantine; pct=100; adkim=r; aspf=r\"" }
   ]
 }
 
