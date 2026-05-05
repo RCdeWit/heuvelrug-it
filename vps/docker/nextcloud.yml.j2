@@ -96,7 +96,7 @@ services:
       - aliasgroup1=https://drive.{{ domain }}:443
       # Security: Restrict WOPI requests to only come from the nextcloud container
       # This prevents unauthorized hosts from requesting document content
-      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:storage.wopi.host[0]=nextcloud
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:storage.wopi.host[0]=nextcloud --o:load_config.default_lang=nl-NL
       - dictionaries=en_US nl_NL
     volumes:
       - ./collabora/fonts:/opt/collaboraoffice/share/fonts/truetype/custom:ro

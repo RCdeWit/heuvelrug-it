@@ -8,6 +8,8 @@ $CONFIG = array (
   ),
   'maintenance_window_start' => 2,
   'default_phone_region' => 'NL',
+  'default_language' => 'nl',
+  'default_locale' => 'nl_NL',
 
   // Memory caching configuration
   'memcache.local' => '\\OC\\Memcache\\APCu',
