@@ -18,7 +18,7 @@ log_error() { printf "${RED}[%s] ✗ %s${RESET}\n" "$(ts)" "$1" >&2; }
 # ── Configuration ─────────────────────────────────────────────────────────────
 BACKUP_DIR="/backup"
 DB_BACKUP_FILE="${BACKUP_DIR}/nextcloud_db.sql"
-RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}}"
+RESTIC_REPO="${RESTIC_REPOSITORY:-s3:${AWS_ENDPOINT_URL_S3}/${AWS_S3_BUCKET}}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
 # Container names are derived from the Docker Compose project name.
 # Docker Compose defaults the project name to the directory name (/opt/nextcloud -> "nextcloud").

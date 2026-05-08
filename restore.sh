@@ -114,9 +114,9 @@ load_env_vars() {
     RESTIC_PASSWORD=$(ssh_exec_sudo "grep '^RESTIC_PASSWORD=' ${NEXTCLOUD_DIR}/.env | cut -d= -f2-")
     AWS_ACCESS_KEY_ID=$(ssh_exec_sudo "grep '^AWS_ACCESS_KEY_ID=' ${NEXTCLOUD_DIR}/.env | cut -d= -f2-")
     AWS_SECRET_ACCESS_KEY=$(ssh_exec_sudo "grep '^AWS_SECRET_ACCESS_KEY=' ${NEXTCLOUD_DIR}/.env | cut -d= -f2-")
-    AWS_S3_ENDPOINT=$(ssh_exec_sudo "grep '^AWS_S3_ENDPOINT=' ${NEXTCLOUD_DIR}/.env | cut -d= -f2-")
+    AWS_ENDPOINT_URL_S3=$(ssh_exec_sudo "grep '^AWS_ENDPOINT_URL_S3=' ${NEXTCLOUD_DIR}/.env | cut -d= -f2-")
     AWS_S3_BUCKET=$(ssh_exec_sudo "grep '^AWS_S3_BUCKET=' ${NEXTCLOUD_DIR}/.env | cut -d= -f2-")
-    RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
+    RESTIC_REPOSITORY="s3:${AWS_ENDPOINT_URL_S3}/${AWS_S3_BUCKET}"
 
     # Verify we got all the variables
     if [[ -z "$RESTIC_PASSWORD" ]] || [[ -z "$AWS_ACCESS_KEY_ID" ]] || [[ -z "$AWS_SECRET_ACCESS_KEY" ]]; then

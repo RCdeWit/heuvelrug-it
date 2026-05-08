@@ -448,9 +448,9 @@ cd /opt/nextcloud && sudo docker compose down
 export RESTIC_PASSWORD=$(sudo grep '^RESTIC_PASSWORD=' /opt/nextcloud/.env | cut -d= -f2-)
 export AWS_ACCESS_KEY_ID=$(sudo grep '^AWS_ACCESS_KEY_ID=' /opt/nextcloud/.env | cut -d= -f2-)
 export AWS_SECRET_ACCESS_KEY=$(sudo grep '^AWS_SECRET_ACCESS_KEY=' /opt/nextcloud/.env | cut -d= -f2-)
-export AWS_S3_ENDPOINT=$(sudo grep '^AWS_S3_ENDPOINT=' /opt/nextcloud/.env | cut -d= -f2-)
+export AWS_ENDPOINT_URL_S3=$(sudo grep '^AWS_ENDPOINT_URL_S3=' /opt/nextcloud/.env | cut -d= -f2-)
 export AWS_S3_BUCKET=$(sudo grep '^AWS_S3_BUCKET=' /opt/nextcloud/.env | cut -d= -f2-)
-export RESTIC_REPOSITORY="s3:${AWS_S3_ENDPOINT}/${AWS_S3_BUCKET}"
+export RESTIC_REPOSITORY="s3:${AWS_ENDPOINT_URL_S3}/${AWS_S3_BUCKET}"
 
 # 4. Clear existing data (restic restore is additive, so wipe first for clean state)
 MOUNT_POINT=$(sudo findmnt -n -o TARGET /dev/disk/by-id/scsi-0HC_Volume_* | grep -v '/var/lib/docker')

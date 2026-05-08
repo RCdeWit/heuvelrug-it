@@ -20,7 +20,7 @@ AWS_ACCESS_KEY_ID = os.environ["TF_VAR_hetzner_s3_access_key"]
 AWS_SECRET_ACCESS_KEY = os.environ["TF_VAR_hetzner_s3_secret_key"]
 HETZNER_REGION = os.environ.get("TF_VAR_hetzner_region", "nbg1")
 HETZNER_S3_DOMAIN = os.environ.get("HETZNER_S3_DOMAIN", "your-objectstorage.com")
-AWS_S3_ENDPOINT = f"https://{HETZNER_REGION}.{HETZNER_S3_DOMAIN}"
+AWS_ENDPOINT_URL_S3 = f"https://{HETZNER_REGION}.{HETZNER_S3_DOMAIN}"
 # Get bucket name dynamically from Terraform outputs
 AWS_S3_BUCKET = get_terraform_output("s3_bucket")
 BACKUP_RETENTION_DAYS = os.environ.get("BACKUP_RETENTION_DAYS", "30")
@@ -291,7 +291,7 @@ files.template(
         f"RESTIC_PASSWORD={RESTIC_PASSWORD}\n"
         f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}\n"
         f"AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}\n"
-        f"AWS_S3_ENDPOINT={AWS_S3_ENDPOINT}\n"
+        f"AWS_ENDPOINT_URL_S3={AWS_ENDPOINT_URL_S3}\n"
         f"AWS_S3_BUCKET={AWS_S3_BUCKET}\n"
         f"BACKUP_RETENTION_DAYS={BACKUP_RETENTION_DAYS}\n"
         f"HEALTHCHECK_URL={HEALTHCHECK_URL}\n"
