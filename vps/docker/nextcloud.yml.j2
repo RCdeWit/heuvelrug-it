@@ -277,7 +277,7 @@ services:
 
   # Janus WebRTC gateway - media server for the signaling backend
   janus:
-    image: mwalbeck/janus-gateway:1.4.0
+    image: mwalbeck/janus-gateway:1.4.1
     restart: always
     command: ["/opt/janus/bin/janus", "-F", "/opt/janus/etc/janus", "--full-trickle"]
     extra_hosts:
