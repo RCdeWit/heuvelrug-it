@@ -58,7 +58,7 @@ server.shell(
 
 server.shell(
     name="Build Caddy with Hetzner DNS v2",
-    commands=["xcaddy build --with github.com/caddy-dns/hetzner/v2@v2.0.0-preview-1 --output /usr/local/bin/caddy"],
+    commands=["xcaddy build --with github.com/caddy-dns/hetzner/v2@v2.0.1 --output /usr/local/bin/caddy"],
     _sudo=True,
 )
 
