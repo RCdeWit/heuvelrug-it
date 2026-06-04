@@ -79,7 +79,7 @@ uv run pyinfra/configure_vps.py --dry  # Dry run PyInfra (doesn't exist yet - us
 - **Caddy** for reverse proxy with automatic HTTPS
 - **Restic** for encrypted backups to Hetzner Object Storage
 - **Tailscale** for mesh VPN (SSH access and private networking - public SSH is blocked)
-- **Komodo Periphery** for Docker container monitoring/management
+- **Komodo Periphery** (optional) for Docker container monitoring/management
 
 ## Environment Variables
 
@@ -103,7 +103,7 @@ Stages run in order (0→3). Stage 0 only runs with `--fresh`:
 
 1. **0-bootstrap.py** - Creates deploy user, sets up SSH (runs as root)
 2. **1-system.py** - System packages, firewall, unattended upgrades, Tailscale
-3. **2-docker.py** - Docker installation, Nextcloud stack deployment, Komodo Periphery
+3. **2-docker.py** - Docker installation, Nextcloud stack deployment, Komodo Periphery (optional)
 4. **3-caddy.py** - Caddy reverse proxy configuration
 
 ## Patterns & Conventions

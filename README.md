@@ -38,7 +38,7 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 │  │  └─────────────────────────────────────────────────────┘   │  │
 │  │                                                            │  │
 │  │  ┌─────────────────────────────────────────────────────┐   │  │
-│  │  │  Komodo Periphery  (port 8120, Tailscale only)      │   │  │
+│  │  │  Komodo Periphery  (port 8120, Tailscale only, opt) │   │  │
 │  │  └─────────────────────────────────────────────────────┘   │  │
 │  │                                                            │  │
 │  │  ┌─────────────────────────────────────────────────────┐   │  │
@@ -65,7 +65,7 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 │  │  - whiteboard.proheuvelrug.nl → VPS (Whiteboard)          │  │
 │  │  - signaling.proheuvelrug.nl  → VPS (Talk HPB)            │  │
 │  │  - turn.proheuvelrug.nl       → VPS (TURN)                │  │
-│  │  - MX → SimpleLogin           (email aliases, optional)   │  │
+│
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -91,7 +91,7 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 ### Networking & Security
 - **Hetzner Firewall**: Only HTTP/HTTPS/ICMP/TURN exposed; SSH blocked from public internet
 - **Tailscale**: Mesh VPN providing the only SSH access path (`tag:vps-external`)
-- **Komodo Periphery**: Docker container monitoring agent, bound to Tailscale IP only
+- **Komodo Periphery** *(optional)*: Docker container monitoring agent, bound to Tailscale IP only
 
 ### Nextcloud Apps
 
@@ -266,30 +266,7 @@ Verifying your domain with Brevo improves deliverability and removes "sent via b
 
 Emails work without domain verification, but deliverability will be lower.
 
-### 7. Configure Email Aliases (SimpleLogin) — optional
-
-[SimpleLogin](https://simplelogin.io) provides email aliases for the domain (e.g. `anything@proheuvelrug.nl` forwarded to a real inbox). Setting this up routes all incoming mail through SimpleLogin's servers and enables DKIM signing from your domain.
-
-1. Sign up at [https://simplelogin.io](https://simplelogin.io)
-2. Go to **Dashboard → Domains → Add a domain**, enter `proheuvelrug.nl`
-3. SimpleLogin will show a domain verification TXT record — copy the value (e.g. `sl-verification=abc123...`)
-4. Add it to `.env`:
-   ```bash
-   export TF_VAR_simplelogin_verification_code="sl-verification=abc123..."
-   ```
-5. Apply with `cd terraform && terraform apply`
-
-Terraform will automatically create:
-- **MX records** — routes incoming mail to SimpleLogin's servers (`mx1/mx2.simplelogin.co`)
-- **DKIM CNAMEs** — enables DKIM signing for outgoing mail via SimpleLogin
-- **SPF** — adds `include:simplelogin.co` to the root SPF record
-- **Verification TXT** — proves domain ownership to SimpleLogin
-
-After `terraform apply`, return to the SimpleLogin dashboard and click **Verify** — all records should pass. Aliases can then be created at **Dashboard → Aliases**.
-
-Leaving `TF_VAR_simplelogin_verification_code` empty disables all SimpleLogin DNS records.
-
-### 8. Deploy VPS
+### 7. Deploy VPS
 
 ```bash
 cd ..  # Return to project root
@@ -550,7 +527,7 @@ ssh deploy@<tailscale-hostname> docker system df        # Docker image/volume us
 ssh deploy@<tailscale-hostname> docker stats --no-stream  # Per-container CPU/RAM
 ```
 
-### Container Monitoring with Komodo
+### Container Monitoring with Komodo — optional
 
 [Komodo](https://komo.do/) provides a web UI for Docker container monitoring and management, accessible via Tailscale.
 

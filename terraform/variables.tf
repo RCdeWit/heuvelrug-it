@@ -74,12 +74,6 @@ variable "brevo_verification_code" {
   sensitive   = false
 }
 
-variable "simplelogin_verification_code" {
-  type        = string
-  description = "SimpleLogin domain verification code (full TXT record value, e.g. sl-verification=...)"
-  default     = ""
-  sensitive   = false
-}
 
 variable "brevo_dkim_key1" {
   type        = string
