@@ -12,6 +12,7 @@ if "TF_VAR_domain" not in os.environ:
     raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
 DOMAIN = os.environ["TF_VAR_domain"]
 GO_VERSION = os.environ.get("GO_VERSION", "1.26.4")
+XCADDY_VERSION = "0.4.7"
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
@@ -30,7 +31,7 @@ server.shell(
 
 files.download(
     name="Download xcaddy",
-    src="https://github.com/caddyserver/xcaddy/releases/download/v0.4.5/xcaddy_0.4.5_linux_amd64.tar.gz",
+    src=f"https://github.com/caddyserver/xcaddy/releases/download/v{XCADDY_VERSION}/xcaddy_{XCADDY_VERSION}_linux_amd64.tar.gz",
     dest="/tmp/xcaddy.tar.gz",
     _sudo=True,
 )
