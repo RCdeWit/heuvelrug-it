@@ -110,10 +110,16 @@ apt.packages(
 )
 
 if TAILSCALE_AUTH_KEY:
+    # --ssh must be restated here on every run, not just set once via the
+    # separate `tailscale set --ssh` step below: this "up" command re-runs
+    # on every deploy (not just once at provisioning), and once --ssh is an
+    # active non-default setting, `tailscale up` refuses to re-run without
+    # explicitly mentioning every non-default flag currently in effect.
     server.shell(
         name="Join Tailnet with auth key",
         commands=[
             f"tailscale up --authkey={TAILSCALE_AUTH_KEY} --advertise-tags=tag:vps-external"
+            " --ssh --accept-risk=lose-ssh"
         ],
         _sudo=True,
     )
@@ -130,4 +136,35 @@ server.shell(
     name="Enable Tailscale auto-updates",
     commands=["tailscale set --auto-update"],
     _sudo=True,
+)
+
+# ============================================================================
+# Tailscale SSH - personal access
+# ============================================================================
+# Dedicated sudo user for personal/interactive access, kept separate from
+# the "deploy" automation user. Its only access path is Tailscale SSH
+# (tailnet-identity based, governed by the tailnet's ACL "ssh" block) --
+# no authorized_keys for it.
+
+server.user(
+    name="Create robdewit user for personal access",
+    user="robdewit",
+    password=None,
+    create_home=True,
+    home="/home/robdewit",
+    groups=["sudo"],
+    _sudo=True,
+)
+
+# Last statement in this file, deliberately: flipping this pref can hang an
+# *existing* SSH connection to the host (Tailscale intercepts the network
+# layer, not just an auth-policy change), so nothing later in this script
+# should depend on the connection surviving it. --accept-risk=lose-ssh is
+# required, not optional -- this deploy connection is itself over Tailscale,
+# so `tailscale set --ssh` refuses non-interactively without it.
+server.shell(
+    name="Enable Tailscale SSH",
+    commands=["tailscale set --ssh --accept-risk=lose-ssh"],
+    _sudo=True,
+    _ignore_errors=True,
 )

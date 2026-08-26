@@ -4,7 +4,7 @@ from io import StringIO
 
 from pyinfra import host
 from pyinfra.facts.server import Command
-from pyinfra.operations import apt, server, files
+from pyinfra.operations import apt, server, files, systemd
 
 from utils.find_project_root import find_project_root
 from utils.get_terraform_output import get_terraform_output
@@ -50,18 +50,17 @@ if "TF_VAR_domain" not in os.environ:
     raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
 DOMAIN = os.environ["TF_VAR_domain"]
 
-# Komodo Periphery configuration
-PERIPHERY_PASSKEY = os.environ.get("PERIPHERY_PASSKEY", "")
+# Komodo Periphery configuration (optional) -- outbound mode, periphery
+# dials Core rather than Core polling a fixed address. KOMODO_CORE_ADDRESS
+# is the full URL of your Komodo Core instance over Tailscale, e.g.
+# "http://your-komodo-core-host.your-tailnet.ts.net:9120" (http://, not
+# https:// -- Core typically runs without TLS internally).
+KOMODO_ONBOARDING_KEY = os.environ.get("KOMODO_ONBOARDING_KEY", "")
+KOMODO_CORE_ADDRESS = os.environ.get("KOMODO_CORE_ADDRESS", "")
 
 MOUNT_POINT = host.get_fact(
     Command,
     "findmnt -n -o TARGET /dev/disk/by-id/scsi-0HC_Volume_* | grep -v '/var/lib/docker'"
-)
-
-# Get Tailscale IP for Periphery binding (empty if Tailscale not running)
-TAILSCALE_IP = host.get_fact(
-    Command,
-    "tailscale ip -4 2>/dev/null || echo ''"
 )
 
 apt.packages(
@@ -121,12 +120,6 @@ server.shell(
         f"mkdir -p {MOUNT_POINT}/redis_data",
         f"mkdir -p {MOUNT_POINT}/clamav_data"
     ],
-    _sudo=True,
-)
-
-server.shell(
-    name="Create Komodo Periphery directory",
-    commands=["mkdir -p /etc/komodo"],
     _sudo=True,
 )
 
@@ -198,14 +191,59 @@ files.put(
     _sudo=True,
 )
 
-# Komodo Periphery - Allow port 8120 on Tailscale interface only
-server.shell(
-    name="Allow Komodo Periphery port through firewall (Tailscale only)",
-    commands=[
-        "ufw allow in on tailscale0 to any port 8120 proto tcp comment 'Komodo Periphery (Tailscale only)'",
-    ],
-    _sudo=True,
-)
+# ============================================================================
+# Komodo Periphery (optional) - outbound mode
+# ============================================================================
+# Periphery dials Core rather than Core polling a fixed address, so it never
+# binds a listening port -- no firewall rule needed. Installed as a native
+# systemd service (not a Docker container) to match Komodo Core's own
+# expected setup. KOMODO_CORE_ADDRESS should use http://, not https://, if
+# Core runs without TLS internally (only its own reverse proxy terminating
+# it externally) -- https:// against a plain HTTP port makes periphery
+# attempt wss:// and fail opaquely.
+if KOMODO_ONBOARDING_KEY and KOMODO_CORE_ADDRESS:
+    PERIPHERY_VERSION = "v2.3.2"
+    VERSION_MARKER = "/etc/komodo/periphery-version"
+
+    # `|| echo none` matters: pyinfra's Command fact returns None (not "")
+    # when a command exits 0 with no stdout, which would crash .strip()
+    # on a host that's never had this marker written before.
+    installed_version = host.get_fact(
+        Command, command=f"cat {VERSION_MARKER} 2>/dev/null || echo none"
+    ).strip()
+
+    periphery_active = (
+        host.get_fact(Command, command="systemctl is-active periphery 2>/dev/null || true").strip()
+        == "active"
+    )
+
+    if not periphery_active or installed_version != PERIPHERY_VERSION:
+        files.put(
+            name="Upload the setup-periphery.py rate-limit patch script",
+            src=f"{PROJECT_ROOT}/pyinfra/utils/patch_setup_periphery.py",
+            dest="/tmp/patch_setup_periphery.py",
+            _sudo=True,
+        )
+
+        server.shell(
+            name="Install and configure Komodo periphery",
+            commands=[
+                "curl -sSL https://raw.githubusercontent.com/moghtech/komodo/main/scripts/setup-periphery.py -o /tmp/setup-periphery.py",
+                "python3 /tmp/patch_setup_periphery.py /tmp/setup-periphery.py",
+                f'python3 /tmp/setup-periphery.py --connect-as="$(hostname)" --version {PERIPHERY_VERSION}'
+                f' --core-address="{KOMODO_CORE_ADDRESS}" --onboarding-key="{KOMODO_ONBOARDING_KEY}"',
+                f"echo {PERIPHERY_VERSION} > {VERSION_MARKER}",
+            ],
+            _sudo=True,
+        )
+
+    systemd.service(
+        name="Enable and start Komodo periphery",
+        _sudo=True,
+        service="periphery",
+        enabled=True,
+        running=True,
+    )
 
 # Nextcloud Talk - Firewall rules for TURN/STUN
 server.shell(
@@ -306,8 +344,6 @@ files.template(
         f"TURN_SECRET={TURN_SECRET}\n"
         f"SIGNALING_SECRET={SIGNALING_SECRET}\n"
         f"WHITEBOARD_JWT_SECRET={WHITEBOARD_JWT_SECRET}\n"
-        f"PERIPHERY_PASSKEY={PERIPHERY_PASSKEY}\n"
-        f"TAILSCALE_IP={TAILSCALE_IP}\n"
     ),
     dest=f"{NEXTCLOUD_DIR}/.env",
     mode="0600",

@@ -38,12 +38,12 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 │  │  └─────────────────────────────────────────────────────┘   │  │
 │  │                                                            │  │
 │  │  ┌─────────────────────────────────────────────────────┐   │  │
-│  │  │  Komodo Periphery  (port 8120, Tailscale only, opt) │   │  │
+│  │  │  Komodo Periphery  (outbound to Core, opt)          │   │  │
 │  │  └─────────────────────────────────────────────────────┘   │  │
 │  │                                                            │  │
 │  │  ┌─────────────────────────────────────────────────────┐   │  │
 │  │  │  Tailscale  (tag:vps-external)                      │   │  │
-│  │  │  - Only SSH access path (public SSH blocked)        │  │  │
+│  │  │  - Key-based (deploy) + Tailscale SSH access        │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  │                                                           │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
@@ -90,8 +90,8 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 
 ### Networking & Security
 - **Hetzner Firewall**: Only HTTP/HTTPS/ICMP/TURN exposed; SSH blocked from public internet
-- **Tailscale**: Mesh VPN providing the only SSH access path (`tag:vps-external`)
-- **Komodo Periphery** *(optional)*: Docker container monitoring agent, bound to Tailscale IP only
+- **Tailscale**: Mesh VPN providing the only SSH access path (`tag:vps-external`), via key-based auth (`deploy` user) and Tailscale SSH
+- **Komodo Periphery** *(optional)*: native systemd agent, outbound mode (dials Komodo Core, no inbound port)
 
 ### Nextcloud Apps
 
@@ -529,15 +529,15 @@ ssh deploy@<tailscale-hostname> docker stats --no-stream  # Per-container CPU/RA
 
 ### Container Monitoring with Komodo — optional
 
-[Komodo](https://komo.do/) provides a web UI for Docker container monitoring and management, accessible via Tailscale.
+[Komodo](https://komo.do/) provides a web UI for Docker container monitoring and management, accessible via Tailscale. Periphery runs in **outbound mode**: it dials your Komodo Core instance rather than the other way around, so it never listens on a port and needs no inbound firewall rule.
 
 **Setup:**
 
-1. Set `PERIPHERY_PASSKEY` in `.env` and redeploy (`--stage 2-docker`)
-2. Find the VPS Tailscale address: `ssh deploy@<tailscale-hostname> "tailscale ip"`
-3. Register in Komodo Core: add server at `<tailscale-ip>:8120` with the same passkey
+1. In Komodo Core's UI, create a non-privileged onboarding key (Settings → Onboarding)
+2. Set `KOMODO_ONBOARDING_KEY` and `KOMODO_CORE_ADDRESS` in `.env` and redeploy (`--stage 2-docker`)
+3. Periphery registers itself with Core automatically — no manual "add server" step
 
-Komodo Periphery is bound to the Tailscale IP only and is not reachable from the public internet.
+Re-onboarding a server Core already knows about (e.g. switching an existing server from inbound to outbound mode) needs a **privileged** onboarding key instead of a regular one.
 
 ---
 
@@ -665,7 +665,7 @@ cd terraform && terraform state show hcloud_zone.domain
 **Internal only:**
 - PostgreSQL (5432), Redis (6379) — Docker network only
 - Nextcloud (8080), Collabora (9980), Whiteboard, signaling — localhost, proxied by Caddy
-- Komodo Periphery (8120) — Tailscale IP only
+- Komodo Periphery *(optional)* — outbound only, dials Komodo Core over Tailscale; binds no port
 
 **Security features:**
 - Automatic HTTPS with HSTS headers

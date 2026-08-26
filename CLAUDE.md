@@ -129,7 +129,7 @@ This repo is designed to support multiple tenants sharing the same codebase and 
 
 ## VPS Access
 
-SSH is only accessible via Tailscale (public SSH is blocked by Hetzner firewall). The Tailscale hostname is auto-detected from Terraform output.
+SSH is only accessible via Tailscale (public SSH is blocked by Hetzner firewall). The Tailscale hostname is auto-detected from Terraform output. Tailscale SSH is also enabled, so a personal `robdewit` sudo user (no authorized keys, tailnet-identity access only) is available in addition to the key-based `deploy` user.
 
 ```bash
 ssh deploy@$(cd terraform && terraform output -raw tailnet_hostname)  # SSH to VPS
@@ -140,18 +140,17 @@ docker exec nextcloud-nextcloud-1 su -s /bin/bash www-data -c 'php /var/www/html
 ## Network Security
 
 - **Hetzner Firewall**: Blocks SSH (port 22) from public internet; only HTTP/HTTPS/ICMP/TURN allowed
-- **Tailscale**: Provides SSH access via mesh VPN (`tag:vps-external`)
+- **Tailscale**: Provides SSH access via mesh VPN (`tag:vps-external`) — both key-based (`deploy` user) and Tailscale SSH (tailnet-identity based, governed by the tailnet's ACL `ssh` block)
 - **UFW**: Host firewall allows OpenSSH (accessible only via Tailscale)
 - **Cloud-init**: Tailscale is installed during VPS provisioning, before any SSH-based deployment
 
 ## Komodo Integration
 
-Komodo Periphery runs as a Docker container for remote container management.
+Komodo Periphery (optional) runs as a native systemd service in **outbound mode**: it dials your Komodo Core instance rather than Core polling a fixed address, so it never binds a listening port and needs no inbound firewall rule.
 
-- **Periphery port**: 8120 (bound to Tailscale IP only, not exposed to internet)
-- **Komodo access**: NAS (`tag:nas`) can reach VPS on port 8120 for container orchestration
-
-To add this server to Komodo Core, register it using its Tailscale hostname or IP on port 8120.
+- Installed only when both `KOMODO_ONBOARDING_KEY` and `KOMODO_CORE_ADDRESS` are set (see `.env.example`)
+- Registers itself with Core automatically using the onboarding key — no manual "add server" step in Komodo's UI
+- Version pinned in `pyinfra/stages/2-docker.py` (`PERIPHERY_VERSION`) to match your Core instance's version
 
 ## Important Notes
 
