@@ -30,7 +30,7 @@ server.shell(
 
 files.download(
     name="Download xcaddy",
-    src="https://github.com/caddyserver/xcaddy/releases/download/v0.4.5/xcaddy_0.4.5_linux_amd64.tar.gz",
+    src="https://github.com/caddyserver/xcaddy/releases/download/v0.4.7/xcaddy_0.4.5_linux_amd64.tar.gz",
     dest="/tmp/xcaddy.tar.gz",
     _sudo=True,
 )
