@@ -123,3 +123,11 @@ else:
         commands=["tailscale status || echo 'Run: sudo tailscale up' to authenticate"],
         _sudo=True,
     )
+
+# Keep the client itself current between deploys (apt.packages latest=True only
+# catches drift when PyInfra re-runs; auto-update handles it continuously).
+server.shell(
+    name="Enable Tailscale auto-updates",
+    commands=["tailscale set --auto-update"],
+    _sudo=True,
+)
