@@ -217,7 +217,21 @@ if KOMODO_ONBOARDING_KEY and KOMODO_CORE_ADDRESS:
         == "active"
     )
 
-    if not periphery_active or installed_version != PERIPHERY_VERSION:
+    # setup-periphery.py skips regenerating periphery.config.toml if it
+    # already exists, so a version/active check alone would silently miss a
+    # changed KOMODO_CORE_ADDRESS or KOMODO_ONBOARDING_KEY on an already-
+    # installed host -- confirmed the hard way, re-running this stage after
+    # fixing a bad core address did nothing until the config was forced to
+    # regenerate.
+    address_configured = (
+        host.get_fact(
+            Command,
+            command=f"grep -qF '{KOMODO_CORE_ADDRESS}' /etc/komodo/periphery.config.toml 2>/dev/null && echo yes || echo no",
+        ).strip()
+        == "yes"
+    )
+
+    if not periphery_active or installed_version != PERIPHERY_VERSION or not address_configured:
         files.put(
             name="Upload the setup-periphery.py rate-limit patch script",
             src=f"{PROJECT_ROOT}/pyinfra/utils/patch_setup_periphery.py",
@@ -228,11 +242,13 @@ if KOMODO_ONBOARDING_KEY and KOMODO_CORE_ADDRESS:
         server.shell(
             name="Install and configure Komodo periphery",
             commands=[
+                "rm -f /etc/komodo/periphery.config.toml",
                 "curl -sSL https://raw.githubusercontent.com/moghtech/komodo/main/scripts/setup-periphery.py -o /tmp/setup-periphery.py",
                 "python3 /tmp/patch_setup_periphery.py /tmp/setup-periphery.py",
                 f'python3 /tmp/setup-periphery.py --connect-as="$(hostname)" --version {PERIPHERY_VERSION}'
                 f' --core-address="{KOMODO_CORE_ADDRESS}" --onboarding-key="{KOMODO_ONBOARDING_KEY}"',
                 f"echo {PERIPHERY_VERSION} > {VERSION_MARKER}",
+                "systemctl restart periphery",
             ],
             _sudo=True,
         )
