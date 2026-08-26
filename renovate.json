@@ -39,7 +39,7 @@
       "description": "xcaddy version",
       "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
       "matchStrings": [
-        "xcaddy/releases/download/v(?<currentValue>[\\d.]+)/"
+        "XCADDY_VERSION.*?[\"'](?<currentValue>[\\d.]+)[\"']"
       ],
       "depNameTemplate": "caddyserver/xcaddy",
       "datasourceTemplate": "github-releases"
