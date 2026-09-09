@@ -202,7 +202,7 @@ files.put(
 # it externally) -- https:// against a plain HTTP port makes periphery
 # attempt wss:// and fail opaquely.
 if KOMODO_ONBOARDING_KEY and KOMODO_CORE_ADDRESS:
-    PERIPHERY_VERSION = "v2.3.2"
+    PERIPHERY_VERSION = "v2.3.3"
     VERSION_MARKER = "/etc/komodo/periphery-version"
 
     # `|| echo none` matters: pyinfra's Command fact returns None (not "")
