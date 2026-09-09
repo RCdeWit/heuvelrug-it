@@ -63,6 +63,16 @@
       ],
       "depNameTemplate": "hashicorp/terraform",
       "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Komodo periphery version",
+      "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
+      "matchStrings": [
+        "PERIPHERY_VERSION\\s*=\\s*[\"'](?<currentValue>v[\\d.]+)[\"']"
+      ],
+      "depNameTemplate": "moghtech/komodo",
+      "datasourceTemplate": "github-releases"
     }
   ],
   "packageRules": [
