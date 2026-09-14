@@ -95,7 +95,7 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 
 ### Nextcloud Apps
 
-Apps are managed declaratively via `vps/nextcloud/nextcloud-entrypoint.sh`, which runs on container startup and installs/configures apps automatically using `occ`. No manual app installation is required.
+Apps are managed declaratively via `vps/nextcloud/nextcloud-configure.sh`. The container entrypoint (`nextcloud-entrypoint.sh`) runs it on every container start, after Nextcloud has initialized, and it installs, enables, and configures apps using `occ`. No manual app installation is required.
 
 **Installed and configured automatically:**
 
@@ -103,19 +103,26 @@ Apps are managed declaratively via `vps/nextcloud/nextcloud-entrypoint.sh`, whic
 |-----|-------------|
 | `richdocuments` | Nextcloud Office — document editing via Collabora |
 | `spreed` | Nextcloud Talk — video conferencing, chat, and TURN/HPB integration |
-| `whiteboard` | Collaborative whiteboard |
 | `notify_push` | Client Push — real-time sync for desktop and mobile clients |
+| `twofactor_totp` | Two-factor authentication via TOTP (with `twofactor_backupcodes` enabled as a fallback) |
 | `admin_audit` | Audit logging — tracks user actions for compliance |
+| `forms` | Surveys and questionnaires |
+| `contacts` | Contacts — address books with CardDAV sync |
+| `calendar` | Calendar — calendars with CalDAV sync |
+| `deck` | Kanban-style project boards |
+| `whiteboard` | Collaborative whiteboard |
+| `groupfolders` | Team Folders — shared folders managed per group |
 | `files_antivirus` | Antivirus scanning — scans uploads via ClamAV daemon |
 
 **Disabled automatically:**
 
-| App       | Reason                                            |
-|-----------|---------------------------------------------------|
-| `app_api` | External app hosting platform — not used          |
-| `photos`  | Photo gallery — not needed for file storage focus |
+| App | Reason |
+|-----|--------|
+| `app_api` | External app hosting platform — not used |
+| `photos` | Photo gallery — not needed for file storage focus |
+| `richdocumentscode` | Built-in CODE server — removed because Collabora runs in its own container |
 
-To add an app to the declarative setup, add the appropriate `occ app:install` and `occ app:enable` calls to `nextcloud-entrypoint.sh`. Other apps (e.g. `calendar`, `contacts`, `deck`) can also be enabled ad hoc via **Admin Settings → Apps**.
+To add an app to the declarative setup, add the appropriate `occ app:install` and `occ app:enable` calls to `nextcloud-configure.sh`. Other apps can also be enabled ad hoc via **Admin Settings → Apps**.
 
 ### Backup Strategy
 - **Frequency**: Daily at 2 AM (during Nextcloud maintenance window)

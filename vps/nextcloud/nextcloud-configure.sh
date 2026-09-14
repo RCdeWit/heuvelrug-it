@@ -129,6 +129,11 @@ echo "Installing Calendar..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install calendar' 2>/dev/null || true
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable calendar' || true
 
+# Install Deck for kanban-style project boards
+echo "Installing Deck..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:install deck' 2>/dev/null || true
+su -s /bin/bash www-data -c 'php /var/www/html/occ app:enable deck' || true
+
 # Install Whiteboard for collaborative drawing
 echo "Installing Whiteboard..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ app:install whiteboard' 2>/dev/null || true
