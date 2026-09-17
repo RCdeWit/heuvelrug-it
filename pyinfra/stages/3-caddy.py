@@ -11,6 +11,9 @@ HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
 if "TF_VAR_domain" not in os.environ:
     raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
 DOMAIN = os.environ["TF_VAR_domain"]
+# Optional; empty means no apex site block is rendered. Shares the TF_VAR_
+# prefix because Terraform reads the same value to decide on the apex A record.
+APEX_REDIRECT_URL = os.environ.get("TF_VAR_apex_redirect_url", "")
 GO_VERSION = os.environ.get("GO_VERSION", "1.27.0")
 XCADDY_VERSION = "0.4.7"
 
@@ -96,6 +99,7 @@ files.template(
     assume_exists=True,
     user="deploy",
     domain=DOMAIN,
+    apex_redirect_url=APEX_REDIRECT_URL,
 )
 
 server.shell(

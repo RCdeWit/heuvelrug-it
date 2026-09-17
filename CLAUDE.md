@@ -121,6 +121,7 @@ This repo is designed to support multiple tenants sharing the same codebase and 
 
 - **`TF_VAR_project_name`** — prefixes all Hetzner resources (server, volume, DNS, storage)
 - **`TF_VAR_domain`** — per-tenant domain; must be set before running PyInfra or Terraform
+- **`TF_VAR_apex_redirect_url`** — optional; when set, the bare domain gets an A record and Caddy redirects it to this URL
 - **`NEXTCLOUD_DIR`** — deploy path on VPS (default: `/opt/nextcloud`); overridable per tenant
 - **`COMPOSE_PROJECT_NAME`** — Docker project name; container names are derived from this
 - **`HETZNER_S3_DOMAIN`** — S3 storage domain suffix; overridable if bucket region differs

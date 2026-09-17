@@ -65,6 +65,7 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 │  │  - whiteboard.proheuvelrug.nl → VPS (Whiteboard)          │  │
 │  │  - signaling.proheuvelrug.nl  → VPS (Talk HPB)            │  │
 │  │  - turn.proheuvelrug.nl       → VPS (TURN)                │  │
+│  │  - proheuvelrug.nl            → VPS (redirect, opt)       │  │
 │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘

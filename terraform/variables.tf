@@ -22,6 +22,12 @@ variable "domain" {
   default     = "dobbertjeduik.nl"
 }
 
+variable "apex_redirect_url" {
+  type        = string
+  description = "URL the apex domain redirects to. Empty disables the apex A record and the Caddy redirect."
+  default     = ""
+}
+
 variable "hcloud_token" {
   type        = string
   description = "Hetzner Cloud token"

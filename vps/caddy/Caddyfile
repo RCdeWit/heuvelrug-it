@@ -1,3 +1,15 @@
+{% if apex_redirect_url %}
+# Apex domain: redirect everything to the tenant's public website
+{{ domain }} {
+    tls {
+        dns hetzner {env.HETZNER_API_TOKEN}
+        resolvers 8.8.8.8:53 1.1.1.1:53
+    }
+
+    redir {{ apex_redirect_url }} permanent
+}
+
+{% endif %}
 drive.{{ domain }} {
     tls {
         dns hetzner {env.HETZNER_API_TOKEN}

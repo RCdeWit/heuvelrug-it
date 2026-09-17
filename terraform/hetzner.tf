@@ -140,6 +140,20 @@ resource "hcloud_zone_rrset" "office" {
   ]
 }
 
+# Apex A record - only when the apex redirects somewhere (see apex_redirect_url).
+# Without a Caddy site block for the apex, an A record would answer HTTPS
+# requests with a TLS handshake failure.
+resource "hcloud_zone_rrset" "apex" {
+  count   = var.apex_redirect_url != "" ? 1 : 0
+  zone    = hcloud_zone.domain.name
+  name    = "@"
+  type    = "A"
+  ttl     = 3600
+  records = [
+    { value = hcloud_server.drive_instance.ipv4_address }
+  ]
+}
+
 resource "hcloud_zone_rrset" "letsencrypt_caa" {
   zone    = hcloud_zone.domain.name
   name    = "@"
