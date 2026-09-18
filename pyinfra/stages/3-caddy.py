@@ -14,7 +14,7 @@ DOMAIN = os.environ["TF_VAR_domain"]
 # Optional; empty means no apex site block is rendered. Shares the TF_VAR_
 # prefix because Terraform reads the same value to decide on the apex A record.
 APEX_REDIRECT_URL = os.environ.get("TF_VAR_apex_redirect_url", "")
-GO_VERSION = os.environ.get("GO_VERSION", "1.27.0")
+GO_VERSION = os.environ.get("GO_VERSION", "1.27.1")
 XCADDY_VERSION = "0.4.7"
 
 server.shell(
