@@ -80,7 +80,7 @@ Infrastructure-as-code (IaC) for PRO Heuvelrug's self-hosted Nextcloud instance.
 - **Hetzner DNS**: Managed DNS for the domain
 
 ### Application Stack
-- **Caddy**: Reverse proxy with automatic HTTPS via Let's Encrypt (Hetzner DNS challenge)
+- **Caddy**: Reverse proxy with automatic HTTPS via Let's Encrypt (HTTP-01 challenge)
 - **Nextcloud**: Self-hosted file sync and collaboration platform
   - **PostgreSQL 15**: Database backend
   - **Redis 7**: Caching and file locking

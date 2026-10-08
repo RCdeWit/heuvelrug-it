@@ -16,42 +16,12 @@
     },
     {
       "customType": "regex",
-      "description": "Go version in .env.example",
-      "managerFilePatterns": ["/^\\.env\\.example$/"],
-      "matchStrings": [
-        "GO_VERSION=(?<currentValue>[\\d.]+)"
-      ],
-      "depNameTemplate": "golang",
-      "datasourceTemplate": "docker"
-    },
-    {
-      "customType": "regex",
-      "description": "Go version in pyinfra caddy script",
+      "description": "Caddy release in pyinfra caddy script",
       "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
       "matchStrings": [
-        "GO_VERSION.*?[\"'](?<currentValue>[\\d.]+)[\"']"
+        "CADDY_VERSION\\s*=\\s*[\"'](?<currentValue>v[\\d.]+)[\"']"
       ],
-      "depNameTemplate": "golang",
-      "datasourceTemplate": "docker"
-    },
-    {
-      "customType": "regex",
-      "description": "xcaddy version",
-      "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
-      "matchStrings": [
-        "XCADDY_VERSION.*?[\"'](?<currentValue>[\\d.]+)[\"']"
-      ],
-      "depNameTemplate": "caddyserver/xcaddy",
-      "datasourceTemplate": "github-releases"
-    },
-    {
-      "customType": "regex",
-      "description": "caddy-dns/hetzner version",
-      "managerFilePatterns": ["/pyinfra/stages/.*\\.py$/"],
-      "matchStrings": [
-        "caddy-dns/hetzner/v2@(?<currentValue>v[\\d.]+[\\w-]*)"
-      ],
-      "depNameTemplate": "caddy-dns/hetzner",
+      "depNameTemplate": "caddyserver/caddy",
       "datasourceTemplate": "github-releases"
     },
     {
@@ -80,11 +50,6 @@
       "description": "Group Nextcloud image updates",
       "matchPackageNames": ["nextcloud"],
       "groupName": "nextcloud"
-    },
-    {
-      "description": "Group Go version updates",
-      "matchPackageNames": ["golang"],
-      "groupName": "go"
     },
     {
       "description": "Automerge patch updates for stable images",

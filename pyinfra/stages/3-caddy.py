@@ -1,21 +1,19 @@
 import os
 
-from io import StringIO
-
 from pyinfra.operations import server, files, systemd
 
 from utils.find_project_root import find_project_root
 
 PROJECT_ROOT = find_project_root()
-HETZNER_API_TOKEN = os.environ["TF_VAR_hcloud_token"]
 if "TF_VAR_domain" not in os.environ:
     raise SystemExit("ERROR: TF_VAR_domain is not set. Set it in your .env file and run: source .env")
 DOMAIN = os.environ["TF_VAR_domain"]
 # Optional; empty means no apex site block is rendered. Shares the TF_VAR_
 # prefix because Terraform reads the same value to decide on the apex A record.
 APEX_REDIRECT_URL = os.environ.get("TF_VAR_apex_redirect_url", "")
-GO_VERSION = os.environ.get("GO_VERSION", "1.27.0")
-XCADDY_VERSION = "0.4.7"
+# The stock release binary. Caddy obtains each site's certificate through the
+# HTTP-01 challenge on port 80, so it needs no DNS module and no API token.
+CADDY_VERSION = "v2.11.7"
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
@@ -33,36 +31,33 @@ server.shell(
 )
 
 files.download(
-    name="Download xcaddy",
-    src=f"https://github.com/caddyserver/xcaddy/releases/download/v{XCADDY_VERSION}/xcaddy_{XCADDY_VERSION}_linux_amd64.tar.gz",
-    dest="/tmp/xcaddy.tar.gz",
+    name=f"Download Caddy {CADDY_VERSION}",
+    src=f"https://github.com/caddyserver/caddy/releases/download/{CADDY_VERSION}/caddy_{CADDY_VERSION.lstrip('v')}_linux_amd64.tar.gz",
+    dest="/tmp/caddy.tar.gz",
+    force=True,
     _sudo=True,
 )
 
 server.shell(
-    name="Extract and install xcaddy",
+    name="Install Caddy",
     commands=[
-        "tar -xzf /tmp/xcaddy.tar.gz -C /tmp",
-        "mv /tmp/xcaddy /usr/local/bin/xcaddy",
-        "chmod +x /usr/local/bin/xcaddy",
+        "tar -xzf /tmp/caddy.tar.gz -C /tmp caddy",
+        "install -m 755 /tmp/caddy /usr/local/bin/caddy",
+        "rm -f /tmp/caddy /tmp/caddy.tar.gz",
     ],
     _sudo=True,
 )
 
+# Earlier deploys compiled Caddy with xcaddy and passed the Hetzner token to
+# it through a systemd drop-in. Nothing reads these any more; the drop-in
+# still carried the token, so its removal is part of the point.
 server.shell(
-    name="Install Go",
+    name="Remove the Go toolchain, xcaddy, and the old systemd drop-in",
     commands=[
-        f"wget https://go.dev/dl/go{GO_VERSION}.linux-amd64.tar.gz -O /tmp/go.tar.gz",
-        "rm -rf /usr/local/go",
-        "tar -C /usr/local -xzf /tmp/go.tar.gz",
-        "ln -sf /usr/local/go/bin/go /usr/bin/go",
+        "rm -rf /usr/local/go /root/go /root/.cache/go-build",
+        "rm -f /usr/bin/go /usr/local/bin/xcaddy /tmp/go.tar.gz /tmp/xcaddy.tar.gz",
+        "rm -rf /etc/systemd/system/caddy.service.d",
     ],
-    _sudo=True,
-)
-
-server.shell(
-    name="Build Caddy with Hetzner DNS v2",
-    commands=["xcaddy build --with github.com/caddy-dns/hetzner/v2@v2.0.1 --output /usr/local/bin/caddy"],
     _sudo=True,
 )
 
@@ -103,30 +98,13 @@ files.template(
 )
 
 server.shell(
-    name="Create systemd drop-in directory",
-    commands=["mkdir -p /etc/systemd/system/caddy.service.d"],
-    _sudo=True,
-)
-
-files.template(
-    name="Systemd drop-in with direct environment and Go DNS override",
-    src=StringIO(
-        f"[Service]\n"
-        f"Environment=HETZNER_API_TOKEN={HETZNER_API_TOKEN}\n"
-        f"Environment=GODEBUG=netdns=go\n"
-    ),
-    dest="/etc/systemd/system/caddy.service.d/env.conf",
-    _sudo=True,
-)
-
-server.shell(
-    name="Reload systemd after adding service drop-ins",
+    name="Reload systemd after changing the service file",
     commands=["systemctl daemon-reload"],
     _sudo=True,
 )
 
 systemd.service(
-    name="Enable and start custom Caddy service",
+    name="Enable and start Caddy",
     _sudo=True,
     service="caddy",
     enabled=True,
