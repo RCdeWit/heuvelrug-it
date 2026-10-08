@@ -1,21 +1,11 @@
 {% if apex_redirect_url %}
 # Apex domain: redirect everything to the tenant's public website
 {{ domain }} {
-    tls {
-        dns hetzner {env.HETZNER_API_TOKEN}
-        resolvers 8.8.8.8:53 1.1.1.1:53
-    }
-
     redir {{ apex_redirect_url }} permanent
 }
 
 {% endif %}
 drive.{{ domain }} {
-    tls {
-        dns hetzner {env.HETZNER_API_TOKEN}
-        resolvers 8.8.8.8:53 1.1.1.1:53
-    }
-
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
     # Client Push (notify_push) - real-time updates for desktop/mobile clients
@@ -32,11 +22,6 @@ drive.{{ domain }} {
 }
 
 office.{{ domain }} {
-    tls {
-        dns hetzner {env.HETZNER_API_TOKEN}
-        resolvers 8.8.8.8:53 1.1.1.1:53
-    }
-
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
     # Collabora Online requires these headers
@@ -60,11 +45,6 @@ healthcheck.{{ domain }} {
 
 # Nextcloud Whiteboard WebSocket server
 whiteboard.{{ domain }} {
-    tls {
-        dns hetzner {env.HETZNER_API_TOKEN}
-        resolvers 8.8.8.8:53 1.1.1.1:53
-    }
-
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
     reverse_proxy http://localhost:3002 {
@@ -79,11 +59,6 @@ whiteboard.{{ domain }} {
 
 # Nextcloud Talk High Performance Backend (signaling server)
 signaling.{{ domain }} {
-    tls {
-        dns hetzner {env.HETZNER_API_TOKEN}
-        resolvers 8.8.8.8:53 1.1.1.1:53
-    }
-
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
     reverse_proxy http://localhost:8081 {
