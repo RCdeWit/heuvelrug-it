@@ -65,6 +65,9 @@ services:
       OVERWRITEPROTOCOL: https
       OVERWRITEHOST: drive.{{ domain }}
       OVERWRITECLIURL: https://drive.{{ domain }}
+      # OPcache size in MB. The image default of 128 fills up with the installed
+      # apps and Nextcloud then warns that the buffer is nearly full.
+      PHP_OPCACHE_MEMORY_CONSUMPTION: 256
       # SMTP Configuration (using official Nextcloud Docker env vars)
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
