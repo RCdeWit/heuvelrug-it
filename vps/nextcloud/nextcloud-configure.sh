@@ -175,14 +175,11 @@ if [ ! -f "$MIGRATION_FLAG" ]; then
     chown www-data:www-data "$MIGRATION_FLAG"
 fi
 
-# Add missing database indices if not already done
-INDICES_FLAG="/var/www/html/data/.db-indices-added"
-if [ ! -f "$INDICES_FLAG" ]; then
-    echo "Adding missing database indices..."
-    su -s /bin/bash www-data -c 'php /var/www/html/occ db:add-missing-indices' || true
-    touch "$INDICES_FLAG"
-    chown www-data:www-data "$INDICES_FLAG"
-fi
+# Add missing database indices. This runs on every start because Nextcloud and
+# app upgrades introduce new optional indices, and a one-time run would miss
+# them. The command is a no-op when nothing is missing.
+echo "Adding missing database indices..."
+su -s /bin/bash www-data -c 'php /var/www/html/occ db:add-missing-indices' || true
 
 # Scan files to detect missing README files and update file cache
 SCAN_FLAG="/var/www/html/data/.initial-scan-done"
