@@ -48,19 +48,6 @@ server.shell(
     _sudo=True,
 )
 
-# Earlier deploys compiled Caddy with xcaddy and passed the Hetzner token to
-# it through a systemd drop-in. Nothing reads these any more; the drop-in
-# still carried the token, so its removal is part of the point.
-server.shell(
-    name="Remove the Go toolchain, xcaddy, and the old systemd drop-in",
-    commands=[
-        "rm -rf /usr/local/go /root/go /root/.cache/go-build",
-        "rm -f /usr/bin/go /usr/local/bin/xcaddy /tmp/go.tar.gz /tmp/xcaddy.tar.gz",
-        "rm -rf /etc/systemd/system/caddy.service.d",
-    ],
-    _sudo=True,
-)
-
 server.user(
     name="Create Caddy system user",
     user="caddy",
