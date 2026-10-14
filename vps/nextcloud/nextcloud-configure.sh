@@ -7,6 +7,13 @@ echo "Applying custom configuration..."
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set backgroundjobs_mode --value="cron"' || true
 # Disable skeleton directory (empty user folders on creation)
 su -s /bin/bash www-data -c 'php /var/www/html/occ config:system:set skeletondirectory --value=""' || true
+# Do not disable accounts after failed logins. With a non-zero value the
+# password_policy app disables the account after that many failed attempts,
+# and only an admin can re-enable it. A client with a stale password (a phone
+# app after a password change) locks its own user out repeatedly, and anyone
+# who knows a username can lock that user out without a password. Brute-force
+# IP throttling (bruteforcesettings) stays enabled and covers online guessing.
+su -s /bin/bash www-data -c 'php /var/www/html/occ config:app:set password_policy maximumLoginAttempts --value=0' || true
 
 # Note: The following settings are now configured via nextcloud.config.php:
 # - trusted_proxies, forwarded_for_headers
