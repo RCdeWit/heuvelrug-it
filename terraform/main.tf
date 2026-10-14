@@ -1,5 +1,5 @@
 terraform {
-  required_version = "1.16.5"
+  required_version = "1.16.6"
 
   backend "s3" {
     # WARNING: Terraform backend blocks cannot use variables or locals.
