@@ -55,6 +55,14 @@ else
     log_ok "Repository ready"
 fi
 
+# A run killed mid-way (container restart, host reboot) leaves its lock behind.
+# `backup` still works with a stale shared lock, but `forget --prune` needs an
+# exclusive lock and fails every night until the lock is removed. `unlock` only
+# removes locks restic considers stale, so a concurrent live run is left alone.
+log_step "Removing stale repository locks..."
+restic -r "${RESTIC_REPO}" unlock
+log_ok "Stale locks removed"
+
 # ── Maintenance mode ──────────────────────────────────────────────────────────
 log_step "Enabling maintenance mode..."
 if ! docker exec "$NEXTCLOUD_CONTAINER" su -s /bin/bash www-data -c 'php /var/www/html/occ maintenance:mode --on'; then
