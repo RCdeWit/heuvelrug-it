@@ -13,7 +13,7 @@ DOMAIN = os.environ["TF_VAR_domain"]
 APEX_REDIRECT_URL = os.environ.get("TF_VAR_apex_redirect_url", "")
 # The stock release binary. Caddy obtains each site's certificate through the
 # HTTP-01 challenge on port 80, so it needs no DNS module and no API token.
-CADDY_VERSION = "v2.11.7"
+CADDY_VERSION = "v2.11.9"
 
 server.shell(
     name="Allow HTTP and HTTPS through Firewall",
